@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
@@ -124,8 +124,17 @@ private fun ScoreboardList(state: ScoreboardUiState) {
                 modifier = Modifier.padding(start = 4.dp, top = 4.dp)
             )
         }
-        items(items = state.records, key = { it.id }) { record ->
-            GameRecordCard(record = record)
+        // Oyun numarası PDF isteği: "Oyun 1", "Oyun 2"... En eski kayıt 1 olur,
+        // en yeni kayıt toplam sayıya eşittir. Liste zaten playedAt DESC
+        // sıralandığı için üstteki karta records.size, alttakine 1 denk gelir.
+        itemsIndexed(
+            items = state.records,
+            key = { _, record -> record.id }
+        ) { index, record ->
+            GameRecordCard(
+                record = record,
+                gameNumber = state.records.size - index
+            )
         }
     }
 }
@@ -197,7 +206,7 @@ private fun StatRow(label: String, value: String) {
 // --- Tek oyun kartı ----------------------------------------------------
 
 @Composable
-private fun GameRecordCard(record: GameRecord) {
+private fun GameRecordCard(record: GameRecord, gameNumber: Int) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -208,11 +217,18 @@ private fun GameRecordCard(record: GameRecord) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = formatDate(record.playedAt),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Column {
+                    Text(
+                        text = "Oyun $gameNumber",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = formatDate(record.playedAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
                     text = "${record.score} puan",
                     style = MaterialTheme.typography.titleSmall,
