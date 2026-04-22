@@ -29,6 +29,9 @@ import com.saffet.wordcrushmobile.domain.model.Cell
  * @param isJokerTarget  Verilen (row, col) aktif joker targeting modunda
  *                       hedef olarak seçilmiş mi? Default `false` döner →
  *                       joker özelliği yoksa mevcut davranış aynı kalır.
+ * @param isExploding    Verilen (row, col) şu an "patlama" animasyonunda mı?
+ *                       ViewModel kelime/joker uygulaması sırasında bu seti
+ *                       kısa süreliğine doldurur. Default `false`.
  */
 @Composable
 fun GameBoard(
@@ -37,7 +40,8 @@ fun GameBoard(
     isLastSelected: (row: Int, col: Int) -> Boolean,
     onCellClick: (Cell) -> Unit,
     modifier: Modifier = Modifier,
-    isJokerTarget: (row: Int, col: Int) -> Boolean = { _, _ -> false }
+    isJokerTarget: (row: Int, col: Int) -> Boolean = { _, _ -> false },
+    isExploding: (row: Int, col: Int) -> Boolean = { _, _ -> false }
 ) {
     if (board.isEmpty()) return
     val cols = board.first().size
@@ -68,7 +72,9 @@ fun GameBoard(
                             isLast = isLastSelected(r, c),
                             onClick = { onCellClick(cell) },
                             modifier = Modifier.size(cellSize),
-                            isJokerTarget = isJokerTarget(r, c)
+                            isJokerTarget = isJokerTarget(r, c),
+                            isExploding = isExploding(r, c),
+                            special = cell.special
                         )
                     }
                     // Satır sonu güvenliği: col sayısı değişkense hizalamayı

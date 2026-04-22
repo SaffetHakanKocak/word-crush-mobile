@@ -37,6 +37,7 @@ import com.saffet.wordcrushmobile.domain.usecase.ValidateWordUseCase
 import com.saffet.wordcrushmobile.ui.navigation.Screen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -363,24 +364,43 @@ class GameViewModel(
     /**
      * Jokeri tahta üzerinde çalıştırır, başarılıysa envanteri -1 düşer
      * ve state'i günceller. Hamle SAYISI harcanmaz — joker "yardım"dır.
+     *
+     * Akış iki fazlıdır, böylece "yok etme" görsel olarak algılanabilir:
+     *  1. Silinecek pozisyonlar [GameUiState.explodingPositions] alanına
+     *     yazılır; board hâlâ eskidir. UI cell'leri kısa bir flash+scale
+     *     animasyonuyla vurgular.
+     *  2. [EXPLOSION_ANIM_MS] sonra yeni board (gravity+refill uygulanmış)
+     *     set edilir, explodingPositions temizlenir.
      */
     private fun executeJoker(action: JokerAction) {
         val currentBoard = _uiState.value.board
         when (val res = jokerEngine.apply(currentBoard, action)) {
             is JokerResult.Success -> {
-                _uiState.update {
-                    it.copy(
-                        board = res.newBoard,
-                        selectedCells = emptyList(),
-                        currentWord = "",
-                        jokerTargeting = null,
-                        lastMessage = "${action.type.displayName} kullanıldı"
-                    )
-                }
                 viewModelScope.launch {
+                    // Faz 1: flash — yalnızca removedPositions dolu olan
+                    // jokerler için anlamlı (FISH, WHEEL, LOLLIPOP).
+                    // SHUFFLE / PARTY_BOOSTER'da board tamamen değişir,
+                    // removedPositions boş — flash adımı atlanır, yalnızca
+                    // board swap edilir; harf değişim animasyonu (Cell
+                    // içindeki AnimatedContent) geçişi yine belirgin yapar.
+                    if (res.removedPositions.isNotEmpty()) {
+                        _uiState.update { it.copy(explodingPositions = res.removedPositions) }
+                        delay(EXPLOSION_ANIM_MS)
+                    }
+                    // Faz 2: yeni board'u yerleştir, flash'ı temizle.
+                    _uiState.update {
+                        it.copy(
+                            board = res.newBoard,
+                            selectedCells = emptyList(),
+                            currentWord = "",
+                            jokerTargeting = null,
+                            explodingPositions = emptySet(),
+                            lastMessage = "${action.type.displayName} kullanıldı"
+                        )
+                    }
                     jokerInventoryRepository.adjust(action.type, delta = -1)
+                    recomputeAvailableWords()
                 }
-                recomputeAvailableWords()
             }
             is JokerResult.InvalidTarget -> _uiState.update {
                 it.copy(
@@ -419,8 +439,14 @@ class GameViewModel(
      * yalnızca ana kelime tek bir [PlayedWord] olarak eklenir — böylece
      * "bulunan kelime sayısı" metriği hamle başına 1 artar (istatistikler
      * için ana kelime yeterli).
+     *
+     * Akış iki fazlıdır (bkz. [executeJoker]):
+     *  1. Seçilen hücreler [GameUiState.explodingPositions] olarak
+     *     işaretlenir; board hâlâ eskidir → UI flash+scale animasyonu yapar.
+     *  2. [EXPLOSION_ANIM_MS] sonra gravity+refill uygulanmış yeni board
+     *     set edilir, skor / hamle sayacı güncellenir.
      */
-    private fun acceptWord(combo: ComboResult, cells: List<Cell>) {
+    private suspend fun acceptWord(combo: ComboResult, cells: List<Cell>) {
         val mainScore: WordScore = scoreCalculator.calculate(
             word = combo.mainWord,
             modifiers = ScoreModifiers.NONE
@@ -436,21 +462,35 @@ class GameViewModel(
             cells = cells
         )
 
+        // PDF §6 "Harf Patlatma Mekaniği": seçimdeki özeller tetiklenir,
+        // kelime uzunluğuna göre son hücreye yeni bir özel simge bırakılır.
+        // applyWord bu adımı atomik yapar — çıktısı yeni board + meta.
+        val result = engine.applyWord(_uiState.value.board, cells)
+
+        // Faz 1: seçili hücreleri patlama vurgusu ile göster; board hâlâ
+        // eski. `selectedCells`'i boşaltıyoruz ki seçim vurgusu flash'ın
+        // önüne geçmesin.
+        val explodingPositions = cells.map { BoardPosition(it.row, it.col) }.toSet()
         _uiState.update { s ->
-            // PDF §6 "Harf Patlatma Mekaniği": seçimdeki özeller tetiklenir,
-            // kelime uzunluğuna göre son hücreye yeni bir özel simge bırakılır.
-            // applyWord bu adımı atomik yapar.
-            val result = engine.applyWord(s.board, cells)
+            s.copy(
+                selectedCells = emptyList(),
+                currentWord = "",
+                explodingPositions = explodingPositions,
+                lastMessage = buildAcceptMessage(combo, totalPoints, result)
+            )
+        }
+        delay(EXPLOSION_ANIM_MS)
+
+        // Faz 2: gravity+refill sonucu yeni board'u yerleştir.
+        _uiState.update { s ->
             val newMoves = s.remainingMoves - 1
             s.copy(
                 board = result.newBoard,
-                selectedCells = emptyList(),
-                currentWord = "",
                 score = s.score + totalPoints,
                 remainingMoves = newMoves,
                 foundWords = s.foundWords + played,
                 isGameOver = newMoves <= 0,
-                lastMessage = buildAcceptMessage(combo, totalPoints, result)
+                explodingPositions = emptySet()
             )
         }
 
@@ -617,6 +657,15 @@ class GameViewModel(
     companion object {
         private const val DEFAULT_SIZE = 6
         private const val DEFAULT_MOVES = 15
+
+        /**
+         * "Patlatma" flash animasyonunun süresi (ms). Bu süre boyunca board
+         * eski halinde kalır ve [GameUiState.explodingPositions] UI
+         * tarafından vurgulanır; sonrasında gravity+refill uygulanmış yeni
+         * board yerleşir. Değer çok kısa olursa değişiklik hissedilmez, çok
+         * uzunsa oynanış yavaşlar — 260 ms iyi bir orta yol.
+         */
+        private const val EXPLOSION_ANIM_MS: Long = 260L
 
         /**
          * ViewModel üretim fabrikası. `viewModel(factory = GameViewModel.Factory)`

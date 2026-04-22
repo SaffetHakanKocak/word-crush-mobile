@@ -140,7 +140,8 @@ fun GameScreen(
                     isLastSelected = state::isLastSelected,
                     onCellClick = viewModel::onCellTapped,
                     modifier = Modifier.fillMaxWidth(),
-                    isJokerTarget = state::isJokerTarget
+                    isJokerTarget = state::isJokerTarget,
+                    isExploding = state::isExploding
                 )
 
                 GameActionButtons(

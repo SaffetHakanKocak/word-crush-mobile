@@ -49,7 +49,18 @@ data class GameUiState(
      * oluşturuyor — hücre tıklamaları seçime eklenir. Aktifse hücre
      * tıklamaları joker hedefine yönlendirilir.
      */
-    val jokerTargeting: JokerTargetingState? = null
+    val jokerTargeting: JokerTargetingState? = null,
+    /**
+     * Animasyon katmanı: "şu an patlamakta olan" hücrelerin pozisyonları.
+     *
+     * Kelime onayı veya joker kullanımı sırasında gravity+refill adımından
+     * HEMEN ÖNCE ViewModel bu seti doldurur; 200–300 ms sonra yeni board ile
+     * birlikte tekrar `emptySet()` yapar. UI bu aralıkta hücreleri kırmızı
+     * flash + scale ile vurgular; böylece yok etme / patlatma olayı gözle
+     * fark edilebilir hale gelir. Board hâlâ eski haliyle render edildiği
+     * için pozisyonlar orijinal (silinmeden önceki) hücrelere işaret eder.
+     */
+    val explodingPositions: Set<BoardPosition> = emptySet()
 ) {
     /** UI kolaylığı: grid'in sütun sayısı (0 ise henüz board üretilmemiş). */
     val cols: Int get() = board.firstOrNull()?.size ?: 0
@@ -70,6 +81,14 @@ data class GameUiState(
     /** UI kolaylığı: hücre şu an joker hedefi olarak seçilmiş mi? */
     fun isJokerTarget(row: Int, col: Int): Boolean =
         jokerTargeting?.pickedTargets?.any { it.row == row && it.col == col } == true
+
+    /**
+     * UI kolaylığı: hücre şu an bir "patlatma" animasyonunun ortasında mı?
+     * [explodingPositions] dolu olduğu kısa süre (200–300 ms) için `true`
+     * döner; animasyon bitince set boşaltılır.
+     */
+    fun isExploding(row: Int, col: Int): Boolean =
+        explodingPositions.any { it.row == row && it.col == col }
 }
 
 /**
