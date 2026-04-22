@@ -1,6 +1,7 @@
 package com.saffet.wordcrushmobile.ui.components.game
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,10 +23,12 @@ import java.util.Locale
  *
  * Sürükleme yerine sade tıklama akışı kullanır (ilk sürüm gereksinimi).
  *
- * @param letter       Hücrede gösterilecek harf.
- * @param isSelected   Hücre mevcut seçim zincirinde mi?
- * @param isLast       Seçim zincirinin son elemanı mı? (farklı vurgu için)
- * @param onClick      Tıklama olayı; ViewModel'e iletilir.
+ * @param letter        Hücrede gösterilecek harf.
+ * @param isSelected    Hücre mevcut seçim zincirinde mi?
+ * @param isLast        Seçim zincirinin son elemanı mı? (farklı vurgu için)
+ * @param isJokerTarget Hücre aktif joker hedef modunda seçilmiş mi?
+ *                      (ör. FreeSwap'te 2. hedef beklenirken 1. kart).
+ * @param onClick       Tıklama olayı; ViewModel'e iletilir.
  */
 @Composable
 fun BoardCell(
@@ -33,17 +36,20 @@ fun BoardCell(
     isSelected: Boolean,
     isLast: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isJokerTarget: Boolean = false
 ) {
     val targetContainer: Color = when {
-        isLast     -> MaterialTheme.colorScheme.primary
-        isSelected -> MaterialTheme.colorScheme.secondaryContainer
-        else       -> MaterialTheme.colorScheme.surface
+        isJokerTarget -> MaterialTheme.colorScheme.tertiaryContainer
+        isLast        -> MaterialTheme.colorScheme.primary
+        isSelected    -> MaterialTheme.colorScheme.secondaryContainer
+        else          -> MaterialTheme.colorScheme.surface
     }
     val targetContent: Color = when {
-        isLast     -> MaterialTheme.colorScheme.onPrimary
-        isSelected -> MaterialTheme.colorScheme.onSecondaryContainer
-        else       -> MaterialTheme.colorScheme.onSurface
+        isJokerTarget -> MaterialTheme.colorScheme.onTertiaryContainer
+        isLast        -> MaterialTheme.colorScheme.onPrimary
+        isSelected    -> MaterialTheme.colorScheme.onSecondaryContainer
+        else          -> MaterialTheme.colorScheme.onSurface
     }
 
     val container by animateColorAsState(targetContainer, label = "cellContainer")
@@ -55,8 +61,11 @@ fun BoardCell(
         shape = RoundedCornerShape(10.dp),
         color = container,
         contentColor = content,
-        tonalElevation = if (isSelected) 4.dp else 1.dp,
-        shadowElevation = if (isSelected) 4.dp else 1.dp
+        tonalElevation = if (isSelected || isJokerTarget) 4.dp else 1.dp,
+        shadowElevation = if (isSelected || isJokerTarget) 4.dp else 1.dp,
+        border = if (isJokerTarget)
+            BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary)
+        else null
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),

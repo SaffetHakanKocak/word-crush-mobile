@@ -36,6 +36,8 @@ import com.saffet.wordcrushmobile.ui.components.game.CurrentWordDisplay
 import com.saffet.wordcrushmobile.ui.components.game.GameActionButtons
 import com.saffet.wordcrushmobile.ui.components.game.GameBoard
 import com.saffet.wordcrushmobile.ui.components.game.GameStatsBar
+import com.saffet.wordcrushmobile.ui.components.game.JokerBar
+import com.saffet.wordcrushmobile.ui.components.game.JokerTargetingBanner
 import com.saffet.wordcrushmobile.viewmodel.GameViewModel
 
 /**
@@ -123,12 +125,22 @@ fun GameScreen(
 
                 CurrentWordDisplay(word = state.currentWord)
 
+                // Joker hedef seçme modunda prompt + iptal. Mod kapalıyken
+                // banner tamamen render edilmez; layout boşluğu oluşmaz.
+                state.jokerTargeting?.let { targeting ->
+                    JokerTargetingBanner(
+                        state = targeting,
+                        onCancel = viewModel::onJokerCancel
+                    )
+                }
+
                 GameBoard(
                     board = state.board,
                     isSelected = state::isSelected,
                     isLastSelected = state::isLastSelected,
                     onCellClick = viewModel::onCellTapped,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isJokerTarget = state::isJokerTarget
                 )
 
                 GameActionButtons(
@@ -138,6 +150,15 @@ fun GameScreen(
                     canClear = state.selectedCells.isNotEmpty(),
                     onClear = viewModel::onClearSelection,
                     onSubmit = viewModel::onSubmitWord
+                )
+
+                // Alt joker barı — market envanterine bağlı, targeting state
+                // ile hangi jokerin seçili olduğu gösterilir. Oyun bittiyse
+                // buton tıklamaları ViewModel'de zaten sessizce ignore edilir.
+                JokerBar(
+                    inventory = state.jokerInventory,
+                    selectedType = state.jokerTargeting?.type,
+                    onJokerClick = viewModel::onJokerPressed
                 )
 
                 if (state.isGameOver) {

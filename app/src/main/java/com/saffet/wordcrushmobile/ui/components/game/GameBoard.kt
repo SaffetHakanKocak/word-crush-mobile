@@ -22,10 +22,13 @@ import com.saffet.wordcrushmobile.domain.model.Cell
  * - Hücre pozisyon bilgisi, seçim durumu (isSelected / isLast) ve tıklama
  *   callback'i state'ten türetilir.
  *
- * @param board         Grid matrisi.
- * @param isSelected    Verilen (row, col) seçimde mi?
+ * @param board          Grid matrisi.
+ * @param isSelected     Verilen (row, col) seçimde mi?
  * @param isLastSelected Verilen (row, col) seçim zincirinin sonuncusu mu?
- * @param onCellClick   Hücre tıklama olayı; Cell'i iletir.
+ * @param onCellClick    Hücre tıklama olayı; Cell'i iletir.
+ * @param isJokerTarget  Verilen (row, col) aktif joker targeting modunda
+ *                       hedef olarak seçilmiş mi? Default `false` döner →
+ *                       joker özelliği yoksa mevcut davranış aynı kalır.
  */
 @Composable
 fun GameBoard(
@@ -33,7 +36,8 @@ fun GameBoard(
     isSelected: (row: Int, col: Int) -> Boolean,
     isLastSelected: (row: Int, col: Int) -> Boolean,
     onCellClick: (Cell) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isJokerTarget: (row: Int, col: Int) -> Boolean = { _, _ -> false }
 ) {
     if (board.isEmpty()) return
     val cols = board.first().size
@@ -63,7 +67,8 @@ fun GameBoard(
                             isSelected = isSelected(r, c),
                             isLast = isLastSelected(r, c),
                             onClick = { onCellClick(cell) },
-                            modifier = Modifier.size(cellSize)
+                            modifier = Modifier.size(cellSize),
+                            isJokerTarget = isJokerTarget(r, c)
                         )
                     }
                     // Satır sonu güvenliği: col sayısı değişkense hizalamayı
