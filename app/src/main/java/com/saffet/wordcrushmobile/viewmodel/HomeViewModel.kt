@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Ana menü ekranının ViewModel'i.
@@ -31,7 +32,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = ""
         )
 
+    /**
+     * Kullanıcı adını DataStore'a yazar.
+     *
+     * Değer normalize edilir (trim) ve minimum uzunluk kontrolünden geçer.
+     * Geçerli değilse sessizce yok sayılır — UI zaten "Kaydet" butonunu
+     * [isUsernameValid] üzerinden disable tutmalıdır.
+     *
+     * Mevcut [UsernameViewModel.save] ilk kayıt akışını (Splash →
+     * Username ekranı) bozmadan aynı repository API'sini kullanır.
+     */
+    fun saveUsername(value: String) {
+        if (!isUsernameValid(value)) return
+        viewModelScope.launch {
+            repo.saveUsername(value.trim())
+        }
+    }
+
     companion object {
         private const val STOP_TIMEOUT_MS = 5_000L
+
+        /** UsernameViewModel ile aynı minimum uzunluk kuralı. */
+        const val MIN_USERNAME_LENGTH = UsernameViewModel.MIN_USERNAME_LENGTH
+
+        fun isUsernameValid(value: String): Boolean =
+            value.trim().length >= MIN_USERNAME_LENGTH
     }
 }

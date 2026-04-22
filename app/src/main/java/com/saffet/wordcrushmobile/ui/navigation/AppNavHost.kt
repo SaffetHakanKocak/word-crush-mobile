@@ -62,8 +62,7 @@ fun AppNavHost(
             HomeScreen(
                 onNewGame = { navController.navigate(Screen.NewGame.route) },
                 onScoreboard = { navController.navigate(Screen.Scoreboard.route) },
-                onMarket = { navController.navigate(Screen.Market.route) },
-                onChangeUsername = { navController.navigate(Screen.Username.route) }
+                onMarket = { navController.navigate(Screen.Market.route) }
             )
         }
 

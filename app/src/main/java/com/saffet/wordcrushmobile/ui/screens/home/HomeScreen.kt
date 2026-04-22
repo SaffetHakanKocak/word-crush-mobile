@@ -15,40 +15,45 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.saffet.wordcrushmobile.ui.components.ChangeUsernameDialog
 import com.saffet.wordcrushmobile.ui.components.HomeMenuButton
 import com.saffet.wordcrushmobile.ui.components.UserGreetingHeader
+import com.saffet.wordcrushmobile.ui.components.UsernameChip
 import com.saffet.wordcrushmobile.viewmodel.HomeViewModel
 
 /**
  * Ana menü ekranı.
  *
- * Ekran üç mantıksal bölümden oluşur:
- *  1. [UserGreetingHeader] — DataStore'dan gelen kullanıcı adını gösterir.
- *  2. [HomeMenuContent] — "Yeni Oyun", "Skor Tablosu" ve "Market" girişleri.
- *  3. Alt kısımdaki "Adı Değiştir" TextButton.
+ * Ekran şu bölümlerden oluşur:
+ *  1. Sol üstte tıklanabilir [UsernameChip] — tıklanınca
+ *     [ChangeUsernameDialog] açılır (PDF §"Ana ekranın sol üst kısmında yer alan
+ *     kullanıcı isminin üzerine tıklayarak değiştirilecektir").
+ *  2. [UserGreetingHeader] — DataStore'dan gelen kullanıcı adını hoş geldin
+ *     kartı olarak gösterir.
+ *  3. [HomeMenuContent] — "Yeni Oyun", "Skor Tablosu" ve "Market" girişleri.
  *
- * HomeScreen sadece compose & orkestrasyon yapar; görsel bileşenler
- * [com.saffet.wordcrushmobile.ui.components] paketi altındadır ve
- * bağımsız olarak önizlenip test edilebilir.
+ * Ayrı bir "Adı Değiştir" butonu YOKTUR; ilk kayıt akışı hâlâ Splash →
+ * UsernameScreen üzerinden gider, buradaki dialog yalnızca değiştirme için.
  */
 @Composable
 fun HomeScreen(
     onNewGame: () -> Unit,
     onScoreboard: () -> Unit,
     onMarket: () -> Unit,
-    onChangeUsername: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val username by viewModel.username.collectAsStateWithLifecycle()
+    var showUsernameDialog by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -58,28 +63,47 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
-            UserGreetingHeader(username = username)
+            // Sol üst köşe: tıklanabilir kullanıcı adı.
+            // Username henüz yüklenmediyse chip'i hiç render etmeyiz, böylece
+            // "…" gibi bir placeholder üzerine yanlışlıkla tıklanmaz.
+            if (username.isNotBlank()) {
+                UsernameChip(
+                    username = username,
+                    onClick = { showUsernameDialog = true },
+                    modifier = Modifier.align(Alignment.Start)
+                )
+            }
 
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(16.dp))
 
-            HomeMenuContent(
-                onNewGame = onNewGame,
-                onScoreboard = onScoreboard,
-                onMarket = onMarket
-            )
-
-            Spacer(Modifier.height(32.dp))
-
-            TextButton(
-                onClick = onChangeUsername,
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Adı Değiştir")
+                UserGreetingHeader(username = username)
+
+                Spacer(Modifier.height(40.dp))
+
+                HomeMenuContent(
+                    onNewGame = onNewGame,
+                    onScoreboard = onScoreboard,
+                    onMarket = onMarket
+                )
             }
         }
+    }
+
+    if (showUsernameDialog) {
+        ChangeUsernameDialog(
+            initialValue = username,
+            onConfirm = { newName ->
+                viewModel.saveUsername(newName)
+                showUsernameDialog = false
+            },
+            onDismiss = { showUsernameDialog = false }
+        )
     }
 }
 
