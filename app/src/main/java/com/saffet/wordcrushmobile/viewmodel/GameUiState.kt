@@ -24,6 +24,9 @@ import com.saffet.wordcrushmobile.domain.model.PlayedWord
  * @property isGameOver        Oyun bitti mi (hamle tükendi veya manuel bitti).
  * @property isDictionaryReady Sözlük belleğe yüklendi mi.
  *                             `false` iken "Onayla" butonu beklemede.
+ * @property isBoardReady      Tahta kullanıcıya gösterilmeye hazır mı.
+ *                             Başlangıçta ve restart sonrası, en az bir
+ *                             kelime garantilenene kadar `false` kalır.
  * @property lastMessage       UI'da geçici olarak gösterilecek son geri
  *                             bildirim (kelime kabul edildi / reddedildi vs).
  *                             `null` ise mesaj yok.
@@ -38,6 +41,7 @@ data class GameUiState(
     val foundWords: List<PlayedWord> = emptyList(),
     val isGameOver: Boolean = false,
     val isDictionaryReady: Boolean = false,
+    val isBoardReady: Boolean = false,
     val lastMessage: String? = null,
     /**
      * Envanter: her joker tipi için oyuncunun sahip olduğu adet. UI

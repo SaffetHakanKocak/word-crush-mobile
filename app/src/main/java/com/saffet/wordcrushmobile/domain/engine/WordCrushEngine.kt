@@ -67,6 +67,42 @@ class WordCrushEngine(
         }
     }
 
+    /**
+     * Tahtadaki hücre içeriklerini (harf + özel tip) koruyup konumlarını
+     * rastgele yeniden dağıtır.
+     *
+     * Bu işlem harf frekans dağılımını bozmaz; yalnızca yerleşimi değiştirir.
+     * Dead-board kurtarma adımlarında (0 kelime) kontrollü ilk müdahale olarak
+     * kullanılabilir.
+     */
+    fun reshuffleBoard(board: List<List<Cell>>): List<List<Cell>> {
+        if (board.isEmpty()) return board
+        val rows = board.size
+        val cols = board.first().size
+        require(board.all { it.size == cols }) {
+            "Tahta satırlarının sütun sayıları eşit olmalı (dikdörtgen grid)."
+        }
+
+        val payload = board.flatten().map {
+            Cell(
+                row = 0,
+                col = 0,
+                letter = it.letter,
+                special = it.special,
+                isSelected = false
+            )
+        }.toMutableList()
+        payload.shuffle(random)
+
+        var i = 0
+        return List(rows) { r ->
+            List(cols) { c ->
+                val cell = payload[i++]
+                cell.copy(row = r, col = c, isSelected = false)
+            }
+        }
+    }
+
     // --- Üst seviye seçim API'si ----------------------------------------
 
     /**

@@ -33,6 +33,8 @@ import com.saffet.wordcrushmobile.domain.model.PlayedWord
 import com.saffet.wordcrushmobile.domain.score.ScoreModifiers
 import com.saffet.wordcrushmobile.domain.score.WordScore
 import com.saffet.wordcrushmobile.domain.score.WordScoreCalculator
+import com.saffet.wordcrushmobile.domain.usecase.EnsurePlayableBoardUseCase
+import com.saffet.wordcrushmobile.domain.usecase.Intervention
 import com.saffet.wordcrushmobile.domain.usecase.ValidateWordUseCase
 import com.saffet.wordcrushmobile.ui.navigation.Screen
 import kotlinx.coroutines.Dispatchers
@@ -71,7 +73,8 @@ class GameViewModel(
     private val historyRepository: GameHistoryRepository,
     private val jokerInventoryRepository: JokerInventoryRepository,
     private val jokerEngine: JokerEngine = JokerEngine(),
-    private val availableWordCounter: AvailableWordCounter = AvailableWordCounter()
+    private val availableWordCounter: AvailableWordCounter = AvailableWordCounter(),
+    private val ensurePlayableBoard: EnsurePlayableBoardUseCase
 ) : AndroidViewModel(application) {
 
     /** Navigation'dan gelen oyun konfigürasyonu. */
@@ -109,9 +112,9 @@ class GameViewModel(
         viewModelScope.launch {
             dictionaryRepository.preload()
             _uiState.update { it.copy(isDictionaryReady = true) }
-            // Sözlük hazır olduktan sonra mevcut tahta için kelime sayımını
-            // başlat. Daha öncesinde sözlük boş olacağı için 0 döner.
-            recomputeAvailableWords()
+            // Başlangıçta çözülemez bir grid görünmemesi için ilk tahta
+            // analiz + gerekirse müdahale adımını kullanıcıya göstermeden yap.
+            recomputeAvailableWordsAndRecoverIfNeeded(showInterventionMessage = false)
         }
 
         // Joker envanteri akışını state'e bağla. Market'ten satın alma
@@ -345,10 +348,11 @@ class GameViewModel(
             GameUiState(
                 board = engine.generateBoard(config),
                 remainingMoves = config.totalMoves,
-                isDictionaryReady = it.isDictionaryReady
+                isDictionaryReady = it.isDictionaryReady,
+                isBoardReady = false
             )
         }
-        recomputeAvailableWords()
+        recomputeAvailableWordsAndRecoverIfNeeded(showInterventionMessage = false)
     }
 
     /**
@@ -512,7 +516,7 @@ class GameViewModel(
                         )
                     }
                     jokerInventoryRepository.adjust(action.type, delta = -1)
-                    recomputeAvailableWords()
+                    recomputeAvailableWordsAndRecoverIfNeeded()
                 }
             }
             is JokerResult.InvalidTarget -> _uiState.update {
@@ -608,7 +612,7 @@ class GameViewModel(
         }
 
         // Tahta değişti — yeni board için kelime sayımını yeniden başlat.
-        recomputeAvailableWords()
+        recomputeAvailableWordsAndRecoverIfNeeded()
 
         // Hamleler bittiyse oyun doğal olarak tamamlandı → kaydet.
         if (_uiState.value.isGameOver) {
@@ -683,6 +687,7 @@ class GameViewModel(
                 lastMessage = "\"$word\" sözlükte bulunamadı · -1 hamle"
             )
         }
+        recomputeAvailableWordsAndRecoverIfNeeded()
         if (_uiState.value.isGameOver) {
             persistIfNeeded(abandoned = false)
         }
@@ -738,18 +743,49 @@ class GameViewModel(
      * - Sözlük henüz hazır değilse (`isReady = false`) hiç başlatmaz;
      *   preload tamamlandığında [init] bloğu tekrar tetikler.
      */
-    private fun recomputeAvailableWords() {
+    private fun recomputeAvailableWordsAndRecoverIfNeeded(
+        showInterventionMessage: Boolean = true
+    ) {
         availableWordsJob?.cancel()
         if (!dictionaryRepository.isReady()) return
 
         val boardSnapshot = _uiState.value.board
         availableWordsJob = viewModelScope.launch {
             val dict = dictionaryRepository.snapshot()
-            val count = withContext(Dispatchers.Default) {
-                availableWordCounter.count(boardSnapshot, dict)
+            val recovery = withContext(Dispatchers.Default) {
+                ensurePlayableBoard.ensure(
+                    board = boardSnapshot,
+                    config = config,
+                    dictionary = dict
+                )
             }
-            _uiState.update { it.copy(availableWordCount = count) }
+
+            // Bu hesap çalışırken tahta değiştiyse sonuç stale'dir, yazma.
+            if (_uiState.value.board != boardSnapshot) return@launch
+
+            val interventionMessage =
+                if (showInterventionMessage) messageFor(recovery.intervention) else null
+
+            _uiState.update { state ->
+                state.copy(
+                    board = recovery.board,
+                    availableWordCount = recovery.availableWordCount,
+                    selectedCells = if (recovery.board != boardSnapshot) emptyList() else state.selectedCells,
+                    currentWord = if (recovery.board != boardSnapshot) "" else state.currentWord,
+                    explodingPositions = if (recovery.board != boardSnapshot) emptySet() else state.explodingPositions,
+                    isBoardReady = true,
+                    lastMessage = interventionMessage ?: state.lastMessage
+                )
+            }
         }
+    }
+
+    private fun messageFor(intervention: Intervention): String? = when (intervention) {
+        Intervention.NONE -> null
+        Intervention.RESHUFFLED -> "Tahta otomatik karıştırıldı"
+        Intervention.REGENERATED -> "Tahta otomatik yenilendi"
+        Intervention.GUARANTEED_WORD_INJECTED -> "Tahta kurtarıldı: en az 1 kelime garanti"
+        Intervention.FAILED -> "Tahta şu an kurtarılamadı, tekrar deneniyor"
     }
 
     private fun messageFor(reason: SelectionError): String = when (reason) {
@@ -803,7 +839,11 @@ class GameViewModel(
                     historyRepository = app.gameHistoryRepository,
                     jokerInventoryRepository = app.jokerInventoryRepository,
                     jokerEngine = JokerEngine(),
-                    availableWordCounter = AvailableWordCounter()
+                    availableWordCounter = AvailableWordCounter(),
+                    ensurePlayableBoard = EnsurePlayableBoardUseCase(
+                        engine = WordCrushEngine(),
+                        counter = AvailableWordCounter()
+                    )
                 )
             }
         }

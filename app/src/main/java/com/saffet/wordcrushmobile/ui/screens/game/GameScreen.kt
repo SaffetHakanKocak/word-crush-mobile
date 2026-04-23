@@ -139,21 +139,28 @@ fun GameScreen(
                 // Drag yalnızca oyuncu kelime kurarken aktif. Joker targeting
                 // modunda tap ile hedef seçilir — drag layer'ı kapanır.
                 val dragEnabled = state.jokerTargeting == null && !state.isGameOver
-
-                GameBoard(
-                    board = state.board,
-                    isSelected = state::isSelected,
-                    isLastSelected = state::isLastSelected,
-                    onCellClick = viewModel::onCellTapped,
-                    modifier = Modifier.fillMaxWidth(),
-                    isJokerTarget = state::isJokerTarget,
-                    isExploding = state::isExploding,
-                    enableDrag = dragEnabled,
-                    onDragStartCell = viewModel::onDragStartCell,
-                    onDragOverCell = viewModel::onDragOverCell,
-                    onDragEnd = viewModel::onDragEnd,
-                    onDragCancel = viewModel::onDragCancel
-                )
+                if (state.isBoardReady) {
+                    GameBoard(
+                        board = state.board,
+                        isSelected = state::isSelected,
+                        isLastSelected = state::isLastSelected,
+                        onCellClick = viewModel::onCellTapped,
+                        modifier = Modifier.fillMaxWidth(),
+                        isJokerTarget = state::isJokerTarget,
+                        isExploding = state::isExploding,
+                        enableDrag = dragEnabled,
+                        onDragStartCell = viewModel::onDragStartCell,
+                        onDragOverCell = viewModel::onDragOverCell,
+                        onDragEnd = viewModel::onDragEnd,
+                        onDragCancel = viewModel::onDragCancel
+                    )
+                } else {
+                    Text(
+                        text = "Tahta hazırlanıyor...",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 // Alt joker barı — market envanterine bağlı, targeting state
                 // ile hangi jokerin seçili olduğu gösterilir. Oyun bittiyse
