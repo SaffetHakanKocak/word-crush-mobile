@@ -204,6 +204,119 @@ class GameViewModel(
         }
     }
 
+    // --- Drag gesture API ----------------------------------------------
+
+    /**
+     * PDF §Oyun Akışı: "harfler üzerinde parmağını sürükleyerek seçer".
+     *
+     * Parmağın ilk temas ettiği hücre seçim zincirinin başlangıcıdır.
+     * Mevcut seçim varsa tamamen sıfırlanır; böylece yarım kalmış bir
+     * seçim üstüne yeni bir drag başlayabilir. Joker targeting modunda
+     * veya oyun bittiğinde sessizce ignore edilir — UI tarafı zaten
+     * drag layer'ını [enableDrag]=false ile devre dışı bırakır, ama bu
+     * savunmacı kontrol yarış durumlarına karşı korur.
+     */
+    fun onDragStartCell(row: Int, col: Int) {
+        val state = _uiState.value
+        if (state.isGameOver || state.jokerTargeting != null) return
+        if (row !in state.board.indices || col !in state.board[row].indices) return
+
+        val first = state.board[row][col]
+        _uiState.update {
+            it.copy(
+                selectedCells = listOf(first),
+                currentWord = engine.buildWord(listOf(first)),
+                lastMessage = null
+            )
+        }
+    }
+
+    /**
+     * Drag sırasında parmak yeni bir hücreye girdiğinde çağrılır.
+     *
+     * Üç durum:
+     *  - Hedef seçim zincirinin son hücresiyse → hiçbir şey yapma
+     *    (aynı hücre içinde mikro hareketler yok sayılır).
+     *  - Hedef bir önceki hücreyse → son hücreyi zincirden çıkar
+     *    ("geri sürükleme" ile pop). Hamle harcanmaz.
+     *  - Başka bir geçerli komşu hücre ise → [WordCrushEngine.appendCell]
+     *    ile eklenir. Motor reddederse (örn. komşu değil, zaten seçili)
+     *    drag sessizce devam eder; mesajla kullanıcı kesilmez.
+     */
+    fun onDragOverCell(row: Int, col: Int) {
+        val state = _uiState.value
+        if (state.isGameOver || state.jokerTargeting != null) return
+        if (row !in state.board.indices || col !in state.board[row].indices) return
+
+        val current = state.selectedCells
+        if (current.isEmpty()) {
+            onDragStartCell(row, col)
+            return
+        }
+
+        val last = current.last()
+        if (last.row == row && last.col == col) return
+
+        // Pop: parmak bir önceki hücreye dönerse zincirden son halkayı sil.
+        if (current.size >= 2) {
+            val prev = current[current.size - 2]
+            if (prev.row == row && prev.col == col) {
+                val shortened = current.dropLast(1)
+                _uiState.update {
+                    it.copy(
+                        selectedCells = shortened,
+                        currentWord = engine.buildWord(shortened),
+                        lastMessage = null
+                    )
+                }
+                return
+            }
+        }
+
+        val cell = state.board[row][col]
+        when (val res = engine.appendCell(current, cell)) {
+            is SelectionResult.Accepted -> _uiState.update {
+                it.copy(
+                    selectedCells = res.selection,
+                    currentWord = res.word,
+                    lastMessage = null
+                )
+            }
+            // Sessizce ignore — drag devam ediyor, kullanıcıya engel olma.
+            is SelectionResult.Rejected -> Unit
+        }
+    }
+
+    /**
+     * Kullanıcı parmağını grid üzerinde kaldırdığında çağrılır.
+     *
+     * Selection boş değilse mevcut [onSubmitWord] akışına devredilir →
+     * yapısal doğrulama + sözlük kontrolü + hamle muhasebesi aynen çalışır.
+     * Böylece hamle kuralları drag ile click arasında tutarlı kalır.
+     */
+    fun onDragEnd() {
+        val state = _uiState.value
+        if (state.isGameOver || state.jokerTargeting != null) return
+        if (state.selectedCells.isEmpty()) return
+        onSubmitWord()
+    }
+
+    /**
+     * Drag grid dışında biterse veya sistem tarafından iptal edilirse
+     * (çok parmaklı jest, telefon kilitleme vb.) seçimi sessizce temizler.
+     * Hamle harcanmaz — kullanıcı "vazgeçmiş" sayılır.
+     */
+    fun onDragCancel() {
+        if (_uiState.value.selectedCells.isEmpty()) return
+        _uiState.update {
+            it.copy(
+                selectedCells = emptyList(),
+                currentWord = "",
+                lastMessage = null
+            )
+        }
+    }
+
     /** Seçimi sıfırlar; kelime ve mesaj alanlarını temizler. */
     fun onClearSelection() {
         _uiState.update {

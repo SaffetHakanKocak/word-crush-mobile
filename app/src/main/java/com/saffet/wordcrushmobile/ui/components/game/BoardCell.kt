@@ -51,7 +51,14 @@ fun BoardCell(
     modifier: Modifier = Modifier,
     isJokerTarget: Boolean = false,
     isExploding: Boolean = false,
-    special: SpecialType = SpecialType.NONE
+    special: SpecialType = SpecialType.NONE,
+    /**
+     * Surface'in `onClick`'ının etkin olup olmadığı. Drag tabanlı seçim
+     * aktifken (`GameBoard.enableDrag = true`) tap davranışı devre dışı
+     * bırakılır — tüm pointer olayları parent gesture layer'ı tarafından
+     * yönetilir. Joker targeting modunda tap tekrar açılır.
+     */
+    clickable: Boolean = true
 ) {
     val hasSpecial = special != SpecialType.NONE
 
@@ -89,7 +96,8 @@ fun BoardCell(
 
     Surface(
         modifier = modifier.scale(scale),
-        onClick = onClick,
+        onClick = if (clickable) onClick else ({}),
+        enabled = clickable,
         shape = RoundedCornerShape(10.dp),
         color = container,
         contentColor = content,

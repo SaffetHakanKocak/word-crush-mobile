@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.saffet.wordcrushmobile.ui.components.game.CurrentWordDisplay
-import com.saffet.wordcrushmobile.ui.components.game.GameActionButtons
 import com.saffet.wordcrushmobile.ui.components.game.GameBoard
 import com.saffet.wordcrushmobile.ui.components.game.GameStatsBar
 import com.saffet.wordcrushmobile.ui.components.game.JokerBar
@@ -47,8 +46,11 @@ import com.saffet.wordcrushmobile.viewmodel.GameViewModel
  *  1. TopAppBar (geri + yeniden başlat).
  *  2. [GameStatsBar] — skor / kalan hamle / kelime sayısı.
  *  3. [CurrentWordDisplay] — o an oluşmakta olan kelime.
- *  4. [GameBoard] — harf grid'i (tıklanabilir hücreler).
- *  5. [GameActionButtons] — Temizle / Onayla.
+ *  4. [GameBoard] — harf grid'i. PDF §Oyun Akışı'na uygun **drag tabanlı
+ *     seçim** varsayılandır: parmağı ilk harfe bastır, komşu harflerin
+ *     üzerinde sürükle, kaldırınca kelime otomatik finalize olur. Joker
+ *     targeting modunda drag pasif olur, tap ile hedef seçilir.
+ *  5. [JokerBar] — alt joker çubuğu.
  *
  * Tüm state [GameViewModel] içinde tutulur; ekran sadece gözlem ve olay
  * iletim sorumluluğunu üstlenir.
@@ -134,6 +136,10 @@ fun GameScreen(
                     )
                 }
 
+                // Drag yalnızca oyuncu kelime kurarken aktif. Joker targeting
+                // modunda tap ile hedef seçilir — drag layer'ı kapanır.
+                val dragEnabled = state.jokerTargeting == null && !state.isGameOver
+
                 GameBoard(
                     board = state.board,
                     isSelected = state::isSelected,
@@ -141,16 +147,12 @@ fun GameScreen(
                     onCellClick = viewModel::onCellTapped,
                     modifier = Modifier.fillMaxWidth(),
                     isJokerTarget = state::isJokerTarget,
-                    isExploding = state::isExploding
-                )
-
-                GameActionButtons(
-                    canSubmit = state.selectedCells.isNotEmpty() &&
-                        state.isDictionaryReady &&
-                        !state.isGameOver,
-                    canClear = state.selectedCells.isNotEmpty(),
-                    onClear = viewModel::onClearSelection,
-                    onSubmit = viewModel::onSubmitWord
+                    isExploding = state::isExploding,
+                    enableDrag = dragEnabled,
+                    onDragStartCell = viewModel::onDragStartCell,
+                    onDragOverCell = viewModel::onDragOverCell,
+                    onDragEnd = viewModel::onDragEnd,
+                    onDragCancel = viewModel::onDragCancel
                 )
 
                 // Alt joker barı — market envanterine bağlı, targeting state
