@@ -684,7 +684,7 @@ class GameViewModel(
                 currentWord = "",
                 remainingMoves = newMoves,
                 isGameOver = newMoves <= 0,
-                lastMessage = "\"$word\" sözlükte bulunamadı · -1 hamle"
+                lastMessage = "\"$word\" kelime sözlükte yok"
             )
         }
         recomputeAvailableWordsAndRecoverIfNeeded()
