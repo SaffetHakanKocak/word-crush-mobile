@@ -1,7 +1,7 @@
 package com.saffet.wordcrushmobile.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.saffet.wordcrushmobile.domain.model.GameDifficulty
+import com.saffet.wordcrushmobile.domain.model.GridSize
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,10 +17,10 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class NewGameViewModel : ViewModel() {
 
-    private val _selectedDifficulty = MutableStateFlow(GameDifficulty.DEFAULT)
-    val selectedDifficulty: StateFlow<GameDifficulty> = _selectedDifficulty.asStateFlow()
+    private val _selectedGridSize = MutableStateFlow(GridSize.DEFAULT)
+    val selectedGridSize: StateFlow<GridSize> = _selectedGridSize.asStateFlow()
 
-    fun select(difficulty: GameDifficulty) {
-        _selectedDifficulty.value = difficulty
+    fun select(gridSize: GridSize) {
+        _selectedGridSize.value = gridSize
     }
 }

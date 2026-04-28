@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
@@ -33,9 +35,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +49,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -62,7 +66,6 @@ import android.view.SoundEffectConstants
 import com.saffet.wordcrushmobile.ui.components.AppTopBar
 import com.saffet.wordcrushmobile.ui.components.ConfirmDialog
 import com.saffet.wordcrushmobile.ui.components.LoadingView
-import com.saffet.wordcrushmobile.ui.components.ScreenContainer
 import com.saffet.wordcrushmobile.ui.components.game.CurrentWordDisplay
 import com.saffet.wordcrushmobile.ui.components.game.GameBoard
 import com.saffet.wordcrushmobile.ui.components.game.GameStatsBar
@@ -72,18 +75,16 @@ import com.saffet.wordcrushmobile.viewmodel.GameViewModel
 import kotlinx.coroutines.delay
 
 /**
- * Asıl oyun ekranı — modernize edilmiş UI.
+ * Asıl oyun ekranı — modernize edilmiş premium UI.
  *
  * Yerleşim (yukarıdan aşağı):
  *  1. TopAppBar (geri + yeniden başlat).
- *  2. [GameStatsBar] — skor / kalan hamle / kelime sayısı (ikonlu).
- *  3. [CurrentWordDisplay] — oluşmakta olan kelime (harf chip'leri).
+ *  2. [GameStatsBar] — skor / kalan hamle / kelime sayısı.
+ *  3. [CurrentWordDisplay] — oluşmakta olan kelime.
  *  4. [JokerTargetingBanner] — joker hedef seçme modu aktifse.
- *  5. [GameBoard] — harf grid'i.
- *  6. [JokerBar] — alt joker çubuğu (modern kartlar).
+ *  5. [GameBoard] — Card içinde modern harf grid'i.
+ *  6. Joker bölümü — başlıklı, container içinde [JokerBar].
  *  7. Oyun bitti kartı — AnimatedVisibility ile fade+scale giriş.
- *
- * Snackbar: Modern rounded tasarım.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -136,11 +137,9 @@ fun GameScreen(
                       
         if (isError) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            // Error sound: Belirgin hata sesi
             toneGen.startTone(ToneGenerator.TONE_SUP_ERROR, 200)
         } else {
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            // Success sound: Başarı sesi
             toneGen.startTone(ToneGenerator.TONE_SUP_CONFIRM, 150)
         }
         
@@ -235,25 +234,42 @@ fun GameScreen(
             }
         }
     ) { padding ->
-        ScreenContainer(
-            modifier = Modifier.padding(padding)
+        // Premium arka plan gradyanı
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            MaterialTheme.colorScheme.background
+                        ),
+                        start = Offset.Zero,
+                        end = Offset(800f, 1600f)
+                    )
+                )
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Stats bar — üst bilgi alanı
+                // ── BÖLÜM 1: Üst İstatistik Barı ──
                 GameStatsBar(
                     score = state.score,
                     remainingMoves = state.remainingMoves,
                     availableWordCount = state.availableWordCount
                 )
 
-                // Kelime oluşturma bandı
+                // ── BÖLÜM 2: Kelime Oluşturma Bandı ──
                 CurrentWordDisplay(word = state.currentWord)
 
-                // Joker hedef seçme modu
+                // ── BÖLÜM 3: Joker Hedef Seçme Modu ──
                 state.jokerTargeting?.let { targeting ->
                     JokerTargetingBanner(
                         state = targeting,
@@ -261,38 +277,75 @@ fun GameScreen(
                     )
                 }
 
-                // Oyun tahtası
+                // ── BÖLÜM 4: Oyun Tahtası (Grid Container) ──
                 val dragEnabled = state.jokerTargeting == null && !state.isGameOver
-                if (state.isBoardReady) {
-                    GameBoard(
-                        board = state.board,
-                        isSelected = state::isSelected,
-                        isLastSelected = state::isLastSelected,
-                        onCellClick = viewModel::onCellTapped,
-                        modifier = Modifier.fillMaxWidth(),
-                        isJokerTarget = state::isJokerTarget,
-                        isExploding = state::isExploding,
-                        enableDrag = dragEnabled,
-                        onDragStartCell = viewModel::onDragStartCell,
-                        onDragOverCell = viewModel::onDragOverCell,
-                        onDragEnd = viewModel::onDragEnd,
-                        onDragCancel = viewModel::onDragCancel
-                    )
-                } else {
-                    LoadingView(
-                        text = "Tahta hazırlanıyor...",
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    tonalElevation = 1.dp,
+                    shadowElevation = 2.dp
+                ) {
+                    Box(
+                        modifier = Modifier.padding(10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (state.isBoardReady) {
+                            GameBoard(
+                                board = state.board,
+                                isSelected = state::isSelected,
+                                isLastSelected = state::isLastSelected,
+                                onCellClick = viewModel::onCellTapped,
+                                modifier = Modifier.fillMaxWidth(),
+                                isJokerTarget = state::isJokerTarget,
+                                isExploding = state::isExploding,
+                                enableDrag = dragEnabled,
+                                onDragStartCell = viewModel::onDragStartCell,
+                                onDragOverCell = viewModel::onDragOverCell,
+                                onDragEnd = viewModel::onDragEnd,
+                                onDragCancel = viewModel::onDragCancel
+                            )
+                        } else {
+                            LoadingView(
+                                text = "Tahta hazırlanıyor...",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
                 }
 
-                // Joker barı
-                JokerBar(
-                    inventory = state.jokerInventory,
-                    selectedType = state.jokerTargeting?.type,
-                    onJokerClick = viewModel::onJokerPressed
-                )
+                // ── BÖLÜM 5: Jokerler Alanı ──
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 1.dp,
+                    shadowElevation = 1.dp
+                ) {
+                    Column(
+                        modifier = Modifier.padding(
+                            start = 12.dp, end = 12.dp,
+                            top = 12.dp, bottom = 8.dp
+                        )
+                    ) {
+                        // Bölüm başlığı
+                        Text(
+                            text = "Jokerler",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                        )
 
-                // Oyun bitti kartı — animasyonlu giriş
+                        JokerBar(
+                            inventory = state.jokerInventory,
+                            selectedType = state.jokerTargeting?.type,
+                            onJokerClick = viewModel::onJokerPressed
+                        )
+                    }
+                }
+
+                // ── BÖLÜM 6: Oyun Bitti Kartı ──
                 AnimatedVisibility(
                     visible = state.isGameOver,
                     enter = fadeIn(tween(400)) + scaleIn(
@@ -308,13 +361,16 @@ fun GameScreen(
                         wordCount = state.foundWords.size
                     )
                 }
+
+                // Alt boşluk
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
 }
 
 /**
- * Oyun sonu özet kartı — gradient arka plan, skor ve kelime sayısı.
+ * Oyun sonu özet kartı — modern premium tasarım.
  */
 @Composable
 private fun GameOverCard(
@@ -322,28 +378,26 @@ private fun GameOverCard(
     wordCount: Int,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-            )
-            .padding(vertical = 20.dp, horizontal = 24.dp),
-        contentAlignment = Alignment.Center
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        tonalElevation = 4.dp,
+        shadowElevation = 8.dp
     ) {
         Column(
+            modifier = Modifier.padding(vertical = 24.dp, horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Star,
                     contentDescription = null,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(32.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(

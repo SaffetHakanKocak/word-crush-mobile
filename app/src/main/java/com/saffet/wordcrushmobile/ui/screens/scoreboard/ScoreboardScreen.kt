@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -316,7 +317,7 @@ private fun GameRecordCard(record: GameRecord, gameNumber: Int) {
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = "#$gameNumber",
+                            text = "Oyun $gameNumber",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -333,7 +334,7 @@ private fun GameRecordCard(record: GameRecord, gameNumber: Int) {
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                text = formatDate(record.playedAt),
+                                text = "Tarih: ${formatDate(record.playedAt)}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -353,7 +354,7 @@ private fun GameRecordCard(record: GameRecord, gameNumber: Int) {
                             MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "puan",
+                        text = "Puan",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -362,29 +363,30 @@ private fun GameRecordCard(record: GameRecord, gameNumber: Int) {
 
             Spacer(Modifier.height(16.dp))
 
-            // Detay hapları (chips)
-            Row(
+            // Detay haplari (chips)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 InfoChip(
-                    text = "${record.rows}×${record.cols}",
+                    text = "Grid: ${record.rows}x${record.cols}",
                     bgColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 InfoChip(
-                    text = "${record.wordCount} kelime",
+                    text = "Kelime Sayısı: ${record.wordCount}",
                     bgColor = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                 )
                 InfoChip(
-                    text = formatDurationShort(record.durationSeconds),
+                    text = "Süre: ${formatDurationShort(record.durationSeconds)}",
                     bgColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            // Alt satır: Özel durumlar (En uzun kelime ve Erken Çıkış)
+            // Alt satir: Ozel durumlar (En uzun kelime ve Erken Cikis)
             if (record.longestWord.isNotBlank() || record.abandoned) {
                 Spacer(Modifier.height(12.dp))
                 Row(
@@ -395,7 +397,7 @@ private fun GameRecordCard(record: GameRecord, gameNumber: Int) {
                     if (record.longestWord.isNotBlank()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "👑 En uzun:",
+                                text = "En Uzun Kelime:",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -493,8 +495,8 @@ private fun formatDurationShort(totalSeconds: Long): String {
     val minutes = (safe % 3_600) / 60
     val seconds = safe % 60
     return when {
-        hours > 0   -> String.format(LOCALE_TR, "%ds %02dd %02dsn", hours, minutes, seconds)
-        minutes > 0 -> String.format(LOCALE_TR, "%dd %02dsn", minutes, seconds)
+        hours > 0   -> String.format(LOCALE_TR, "%dsa %02ddk %02dsn", hours, minutes, seconds)
+        minutes > 0 -> String.format(LOCALE_TR, "%ddk %02dsn", minutes, seconds)
         else        -> String.format(LOCALE_TR, "%dsn", seconds)
     }
 }

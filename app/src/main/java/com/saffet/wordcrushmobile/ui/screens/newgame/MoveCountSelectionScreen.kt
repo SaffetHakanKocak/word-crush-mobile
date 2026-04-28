@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,19 +44,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.saffet.wordcrushmobile.domain.model.GridSize
-import com.saffet.wordcrushmobile.ui.components.GridSizeCard
+import com.saffet.wordcrushmobile.domain.model.MoveOption
+import com.saffet.wordcrushmobile.ui.components.MoveOptionCard
 import com.saffet.wordcrushmobile.ui.components.ScreenContainer
-import com.saffet.wordcrushmobile.viewmodel.NewGameViewModel
+import com.saffet.wordcrushmobile.viewmodel.MoveSelectionViewModel
 import kotlinx.coroutines.delay
 
 @Composable
-fun NewGameScreen(
-    onNext: (rows: Int, cols: Int) -> Unit,
+fun MoveCountSelectionScreen(
+    rows: Int,
+    cols: Int,
+    onStartGame: (rows: Int, cols: Int, moves: Int) -> Unit,
     onBack: () -> Unit,
-    viewModel: NewGameViewModel = viewModel()
+    viewModel: MoveSelectionViewModel = viewModel()
 ) {
-    val selected by viewModel.selectedGridSize.collectAsStateWithLifecycle()
+    val selected by viewModel.selectedMoveOption.collectAsStateWithLifecycle()
 
     var headerVisible by remember { mutableStateOf(false) }
     var cardsVisible by remember { mutableStateOf(false) }
@@ -86,7 +88,7 @@ fun NewGameScreen(
                     animationSpec = tween(500)
                 )
             ) {
-                NewGameHeader(onBack = onBack)
+                MoveSelectionHeader(onBack = onBack)
             }
 
             Spacer(Modifier.height(28.dp))
@@ -98,7 +100,7 @@ fun NewGameScreen(
                     animationSpec = tween(500)
                 )
             ) {
-                GridSizeList(
+                MoveOptionList(
                     selected = selected,
                     onSelect = viewModel::select
                 )
@@ -113,7 +115,7 @@ fun NewGameScreen(
                     animationSpec = tween(400)
                 )
             ) {
-                SelectionSummary(selected = selected)
+                SelectionSummary(rows = rows, cols = cols, selected = selected)
             }
 
             Spacer(Modifier.height(28.dp))
@@ -130,15 +132,15 @@ fun NewGameScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    NextButton(
+                    StartGameButton(
                         onClick = {
-                            onNext(selected.rows, selected.cols)
+                            onStartGame(rows, cols, selected.moves)
                         }
                     )
 
                     androidx.compose.material3.TextButton(onClick = onBack) {
                         Text(
-                            text = "Vazgeç",
+                            text = "Geri Dön",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -150,7 +152,7 @@ fun NewGameScreen(
 }
 
 @Composable
-private fun NewGameHeader(onBack: () -> Unit) {
+private fun MoveSelectionHeader(onBack: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -167,7 +169,7 @@ private fun NewGameHeader(onBack: () -> Unit) {
             }
             Spacer(Modifier.width(4.dp))
             Text(
-                text = "Yeni Oyun",
+                text = "Hamle Sayısı Seç",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.5).sp
@@ -179,7 +181,7 @@ private fun NewGameHeader(onBack: () -> Unit) {
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Oyun tahtasının boyutunu seç.",
+            text = "Oyun zorluğunu belirleyecek hamle sayısını seç.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -188,9 +190,9 @@ private fun NewGameHeader(onBack: () -> Unit) {
 }
 
 @Composable
-private fun GridSizeList(
-    selected: GridSize,
-    onSelect: (GridSize) -> Unit
+private fun MoveOptionList(
+    selected: MoveOption,
+    onSelect: (MoveOption) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -198,18 +200,18 @@ private fun GridSizeList(
             .animateContentSize(animationSpec = tween(300)),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        GridSize.entries.forEach { gridSize ->
-            GridSizeCard(
-                gridSize = gridSize,
-                isSelected = gridSize == selected,
-                onClick = { onSelect(gridSize) }
+        MoveOption.entries.forEach { moveOption ->
+            MoveOptionCard(
+                moveOption = moveOption,
+                isSelected = moveOption == selected,
+                onClick = { onSelect(moveOption) }
             )
         }
     }
 }
 
 @Composable
-private fun SelectionSummary(selected: GridSize) {
+private fun SelectionSummary(rows: Int, cols: Int, selected: MoveOption) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -224,8 +226,28 @@ private fun SelectionSummary(selected: GridSize) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             SummaryItem(
-                value = "${selected.rows}×${selected.cols}",
-                label = "Tahta Boyutu"
+                value = "${rows}×${cols}",
+                label = "Tahta"
+            )
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(32.dp)
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            )
+            SummaryItem(
+                value = "${selected.moves}",
+                label = "Hamle"
+            )
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(32.dp)
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            )
+            SummaryItem(
+                value = selected.description,
+                label = "Seviye"
             )
         }
     }
@@ -255,7 +277,7 @@ private fun SummaryItem(
 }
 
 @Composable
-private fun NextButton(
+private fun StartGameButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -263,7 +285,7 @@ private fun NextButton(
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.96f else 1f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 800f),
-        label = "nextBtnScale"
+        label = "startBtnScale"
     )
 
     Box(
@@ -289,19 +311,19 @@ private fun NextButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onPrimary
+            )
             Text(
-                text = "İleri",
+                text = "Oyuna Başla",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
                 ),
                 color = MaterialTheme.colorScheme.onPrimary
-            )
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onPrimary
             )
         }
     }

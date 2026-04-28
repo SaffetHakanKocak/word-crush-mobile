@@ -4,7 +4,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -29,10 +33,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.saffet.wordcrushmobile.R
 import com.saffet.wordcrushmobile.ui.components.ChangeUsernameDialog
 import com.saffet.wordcrushmobile.ui.components.HomeMenuButton
 import com.saffet.wordcrushmobile.ui.components.UserGreetingHeader
@@ -40,20 +47,10 @@ import com.saffet.wordcrushmobile.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
 
 /**
- * Ana menü ekranı.
+ * Ana menu ekrani.
  *
- * Ekran şu bölümlerden oluşur:
- *  1. Gradient arka planlı [UserGreetingHeader] — kullanıcı adını gösterir,
- *     tıklanınca [ChangeUsernameDialog] açılır
- *     (PDF §"Ana ekranın sol üst kısmında yer alan kullanıcı isminin
- *     üzerine tıklayarak değiştirilecektir").
- *  2. [HomeMenuContent] — "Yeni Oyun", "Skor Tablosu" ve "Market" girişleri
- *     kart benzeri modern tasarımla.
- *
- * Giriş animasyonları: elemanlar staggered fade+slide ile görünür.
- *
- * Ayrı bir "Adı Değiştir" butonu YOKTUR; ilk kayıt akışı hâlâ Splash →
- * UsernameScreen üzerinden gider, buradaki dialog yalnızca değiştirme için.
+ * Kullanici adini sol ustte tiklanabilir olarak gosterir, logoyu orta bolgede
+ * vurgular ve mevcut ana menu kartlarini korur.
  */
 @Composable
 fun HomeScreen(
@@ -65,8 +62,8 @@ fun HomeScreen(
     val username by viewModel.username.collectAsStateWithLifecycle()
     var showUsernameDialog by remember { mutableStateOf(false) }
 
-    // Staggered animation states
     var headerVisible by remember { mutableStateOf(false) }
+    var logoVisible by remember { mutableStateOf(false) }
     var sectionTitleVisible by remember { mutableStateOf(false) }
     var menuItem1Visible by remember { mutableStateOf(false) }
     var menuItem2Visible by remember { mutableStateOf(false) }
@@ -75,6 +72,8 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         delay(100)
         headerVisible = true
+        delay(120)
+        logoVisible = true
         delay(120)
         sectionTitleVisible = true
         delay(100)
@@ -89,65 +88,91 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 24.dp)
         ) {
-            // Greeting header — tıklanabilir, isim değiştirir
-            AnimatedVisibility(
-                visible = headerVisible,
-                enter = fadeIn(tween(500)) + slideInVertically(
-                    initialOffsetY = { -40 },
-                    animationSpec = tween(500)
-                )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
             ) {
-                UserGreetingHeader(
-                    username = username,
-                    onEditClick = { showUsernameDialog = true }
-                )
-            }
-
-            Spacer(Modifier.height(32.dp))
-
-            // "Menü" bölüm başlığı
-            AnimatedVisibility(
-                visible = sectionTitleVisible,
-                enter = fadeIn(tween(400)) + slideInVertically(
-                    initialOffsetY = { 20 },
-                    animationSpec = tween(400)
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                AnimatedVisibility(
+                    visible = headerVisible,
+                    enter = fadeIn(tween(500)) + slideInVertically(
+                        initialOffsetY = { -40 },
+                        animationSpec = tween(500)
+                    ),
+                    modifier = Modifier.align(Alignment.Start)
                 ) {
-                    Text(
-                        text = "Ne yapmak istersin?",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = MaterialTheme.colorScheme.onBackground
+                    UserGreetingHeader(
+                        username = username,
+                        onEditClick = { showUsernameDialog = true }
                     )
                 }
+
+                Spacer(Modifier.height(40.dp))
+
+                AnimatedVisibility(
+                    visible = logoVisible,
+                    enter = fadeIn(tween(600)) + slideInVertically(
+                        initialOffsetY = { -20 },
+                        animationSpec = tween(600)
+                    ),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Column(
+                        modifier = Modifier.widthIn(max = 280.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.word_crush),
+                            contentDescription = "Word Crush Logo",
+                            modifier = Modifier.size(188.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(32.dp))
+
+                AnimatedVisibility(
+                    visible = sectionTitleVisible,
+                    enter = fadeIn(tween(400)) + slideInVertically(
+                        initialOffsetY = { 20 },
+                        animationSpec = tween(400)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Ne yapmak istersin?",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                HomeMenuContent(
+                    onNewGame = onNewGame,
+                    onScoreboard = onScoreboard,
+                    onMarket = onMarket,
+                    menuItem1Visible = menuItem1Visible,
+                    menuItem2Visible = menuItem2Visible,
+                    menuItem3Visible = menuItem3Visible
+                )
+
+                Spacer(Modifier.height(24.dp))
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Menü kartları — staggered geliş
-            HomeMenuContent(
-                onNewGame = onNewGame,
-                onScoreboard = onScoreboard,
-                onMarket = onMarket,
-                menuItem1Visible = menuItem1Visible,
-                menuItem2Visible = menuItem2Visible,
-                menuItem3Visible = menuItem3Visible
-            )
-
-            Spacer(Modifier.height(24.dp))
         }
     }
 
@@ -163,11 +188,6 @@ fun HomeScreen(
     }
 }
 
-/**
- * Ana menü butonlarını dikey olarak dizen özel bileşen.
- * Her buton [HomeMenuButton] kullanır; sıralama ve boşluklar burada yönetilir.
- * Staggered animasyon visibility state'leri dışarıdan alınır.
- */
 @Composable
 private fun HomeMenuContent(
     onNewGame: () -> Unit,

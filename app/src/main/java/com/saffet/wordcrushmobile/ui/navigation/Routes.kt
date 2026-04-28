@@ -21,6 +21,14 @@ sealed class Screen(val route: String) {
     data object Scoreboard : Screen("scoreboard")
     data object Market : Screen("market")
 
+    data object MoveSelection : Screen("move_selection/{rows}/{cols}") {
+        const val ARG_ROWS = "rows"
+        const val ARG_COLS = "cols"
+
+        fun createRoute(rows: Int, cols: Int): String =
+            "move_selection/$rows/$cols"
+    }
+
     data object Game : Screen("game/{rows}/{cols}/{moves}") {
         const val ARG_ROWS = "rows"
         const val ARG_COLS = "cols"

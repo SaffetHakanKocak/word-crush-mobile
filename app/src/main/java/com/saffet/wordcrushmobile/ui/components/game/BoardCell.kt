@@ -108,7 +108,7 @@ fun BoardCell(
         isSelected             -> 6.dp
         isJokerTarget          -> 4.dp
         hasSpecial             -> 3.dp
-        else                   -> 1.dp
+        else                   -> 2.dp
     }
     val elevation by animateDpAsState(
         targetValue = targetElevation,
@@ -130,7 +130,7 @@ fun BoardCell(
         modifier = modifier.scale(scale),
         onClick = if (clickable) onClick else ({}),
         enabled = clickable,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         color = container,
         contentColor = content,
         tonalElevation = elevation,

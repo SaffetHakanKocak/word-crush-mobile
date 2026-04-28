@@ -25,11 +25,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
@@ -58,7 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.saffet.wordcrushmobile.domain.model.JokerType
+import com.saffet.wordcrushmobile.ui.components.game.JokerIcon
 import com.saffet.wordcrushmobile.viewmodel.MarketUiState
 import com.saffet.wordcrushmobile.viewmodel.MarketViewModel
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -295,11 +290,9 @@ private fun JokerCard(
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = iconForGame(type),
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                JokerIcon(
+                    type = type,
+                    size = 36.dp
                 )
             }
 
@@ -425,12 +418,4 @@ private fun LoadingState() {
     }
 }
 
-/** Joker tipine göre Game mantığındaki Material ikonlarını tekrar kullanır */
-private fun iconForGame(type: JokerType): ImageVector = when (type) {
-    JokerType.FISH            -> Icons.Filled.Favorite
-    JokerType.WHEEL           -> Icons.Filled.LocationOn
-    JokerType.LOLLIPOP_HAMMER -> Icons.Filled.Clear
-    JokerType.FREE_SWAP       -> Icons.AutoMirrored.Filled.ArrowForward
-    JokerType.LETTER_SHUFFLE  -> Icons.Filled.Refresh
-    JokerType.PARTY_BOOSTER   -> Icons.Filled.Star
-}
+

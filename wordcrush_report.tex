@@ -1,0 +1,555 @@
+\documentclass[conference]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[turkish]{babel}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\LongState}[1]{%
+	\State \parbox[t]{\dimexpr\linewidth-\algorithmicindent\relax}{#1}%
+}
+
+% Görselleri sütun genişliğinin %80'i kadar ölçekle ve en-boy oranını koru
+\setkeys{Gin}{width=0.8\columnwidth,keepaspectratio}
+
+\makeatletter
+\renewenvironment{abstract}{%
+	\par\noindent
+	{\normalfont\normalsize ÖZET}\par\medskip
+	\normalfont\normalsize
+}{%
+	\par
+}
+\makeatother
+
+\title{%
+	\normalsize\bfseries
+	KOCAELİ ÜNİVERSİTESİ BİLGİSAYAR MÜHENDİSLİĞİ\\[1em]
+	YAZILIM LABORATUVARI - II\\
+	PROJE - II\\[1em]
+	Word Crush Mobil Oyunu
+}
+
+\author{
+	\IEEEauthorblockN{Saffet Hakan KOÇAK}
+	\IEEEauthorblockA{%
+		Bilgisayar Mühendisliği\\
+		Kocaeli Üniversitesi\\
+		230202058%
+	}
+	\and
+	\IEEEauthorblockN{Yusuf BÜLBÜL}
+	\IEEEauthorblockA{%
+		Bilgisayar Mühendisliği\\
+		Kocaeli Üniversitesi\\
+		230202050%
+	}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Bu projede, Android tabanlı Word Crush mobil oyunu tasarlanmış ve
+geliştirilmiştir. Oyunun amacı, oyuncunun harflerden oluşan bir grid
+üzerinde anlamlı kelimeler üretmesini sağlamak; oluşan kelimeleri tahtadan
+kaldırıp yeni harf akışlarıyla oynanışı sürekli ve dengeli tutmaktır. Proje,
+kelime doğrulama ve puanlama kurallarının tutarlı biçimde uygulanması ile
+mobil cihazlarda akıcı bir oyun deneyimi sunmayı hedeflemektedir.
+
+Uygulama mimarisi MVVM yapısında kurgulanmış; arayüz Jetpack Compose ile
+geliştirilmiş, veri katmanında Room ve DataStore kullanılmıştır. Oyun
+durumu, skor tablosu, kullanıcı adı ve ilerleme bilgileri kalıcı olarak
+saklanırken; iş kuralları use-case odaklı bir katmanda ayrılmış ve
+görünüm-modeli ile arayüz arasında tek yönlü veri akışı sağlanmıştır.
+
+Oyun mekanikleri; kelime oluşturma, geçersiz hamle engelleme, kelime
+silme-sonrası harf düşürme, yeni harf üretimi, combo hesaplama ve
+puanlama kuralları üzerinden tanımlanmıştır. Joker sistemi, market ve
+özel güç mekanikleri ile stratejik kararların önemi artırılmış; skor
+tablosu ve kullanıcı adı saklama özellikleri ile rekabet duygusu
+desteklenmiştir.
+
+Geliştirilen yapıda oyun akışı, arayüz tepkiselliği ve veri kalıcılığı
+uçtan uca test edilmiş; temel senaryolarda stabil bir oynanış elde
+edilmiştir. Sonuç olarak, kelime tabanlı bulmaca dinamiklerini mobil
+ortama uygun şekilde birleştiren, modüler ve genişletilebilir bir oyun
+altyapısı ortaya konulmuştur.
+\end{abstract}
+
+\section{GİRİŞ}
+
+Mobil oyunlar, geniş kullanıcı kitlesine erişimi, kısa ve tekrarlı
+etkileşimlere uygun yapısı ve cihazların her an kullanılabilir olması
+nedeniyle günümüzde etkin bir dijital deneyim türü haline gelmiştir.
+Kelime tabanlı oyunlar ise eğitsel katkı ile eğlenceyi birleştirerek
+kullanıcıya dilsel farkındalık, kelime haznesini geliştirme ve dikkat
+yönetimi gibi bilişsel faydalar sunar. Bu bağlamda kelime oluşturma ve
+bulmaca mekaniklerini mobil platformlara uygun şekilde bir araya getirmek,
+hem kullanışlı hem de sürdürülebilir bir oyun deneyimi açısından önemlidir.
+
+Word Crush projesi, mobil ortamda akıcı bir kelime oyunu deneyimi sunmak
+üzere geliştirilmiştir. Projede hedeflenen, oyuncunun harflerden oluşan
+bir grid üzerinden anlamlı kelimeler üretmesini sağlayan; puanlama, combo,
+joker ve özel güç mekanikleri ile stratejik derinlik kazandıran bir oyun
+altyapısıdır. Oyuncuya sunduğu mobil deneyim, hem tek elle hızlı
+etkileşim hem de performanslı arayüz güncellemeleriyle desteklenmiştir.
+
+Oyun yapısı; grid tabanlı tahtanın yönetimi, kelime doğrulama kuralları,
+kelime silinmesi sonrasında harflerin düşürülmesi ve yeni harf üretimi
+akışları üzerine kuruludur. Skor ve combo mekanikleri puanlama dengesi
+için tanımlanmış; joker sistemi ve market yapısı oyuncunun oyun içindeki
+kaynaklarını yönetmesine olanak vermiştir. Skor tablosu, kullanıcı adı
+saklama ve oyun durumu kaydı gibi bileşenler veri kalıcılığını sağlayarak
+uzun süreli kullanımı destekler.
+
+Raporun devamında, uygulamanın mimarisi ve katmanları, oyun mekaniklerinin
+algoritmik işleyişi, veri saklama yaklaşımları ve arayüz tasarımı
+ayrıntılı olarak ele alınacak; ardından deneysel sonuçlar, elde edilen
+bulgular ve gelecek iyileştirme alanları sunulacaktır.
+
+\section{Yöntem}
+
+Bu bölümde, Word Crush oyununun tasarım ve uygulama yaklaşımı, mimari
+katmanlar, oyun akışı ve temel mekanikler üzerinden açıklanmaktadır.
+Sistem; arayüz, alan mantığı ve veri saklama katmanlarını ayıran bir
+yapı üzerinde kurulmuş; oyun kurgusu ise grid tabanlı etkileşim ve
+kelime doğrulama kuralları etrafında şekillendirilmiştir.
+
+\subsection{Sistem Mimarisi}
+
+Uygulama, MVVM mimarisi temelinde katmanlara ayrılarak
+geliştirilmiştir. UI katmanı Jetpack Compose üzerinden yalnızca
+görünümü ve etkileşimleri yönetir; ViewModel katmanı, oyun
+durumunu tek yönlü veri akışı ile taşır ve UI ile iş kuralları
+arasındaki bağlantıyı kurar. Veri katmanı, Room veritabanı
+üzerinden skor tablosu ve oyun kayıtlarını saklarken; DataStore
+ile kullanıcı adı ve ayar gibi küçük durum bilgilerini kalıcı
+hale getirir. Oyun motoru katmanı ise grid durumu, kelime
+doğrulama kuralları, puanlama, combo ve özel güç mekaniklerini
+yöneterek hamlelerin tutarlı şekilde işlenmesini sağlar.
+Ekranlar arası akış, navigation bileşenleri ile kontrol edilmiş
+ve oyun, market ve skor tablosu gibi görünümler arasında
+durum geçişleri standartlaştırılmıştır.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics{sistem_mimari.png}
+	\caption{Sistem Mimarisi Diyagramı}
+	\label{fig:mimari}
+\end{figure}
+
+\subsection{Kullanılan Teknolojiler}
+
+Uygulama Kotlin ile geliştirilmiş; arayüz katmanı Jetpack Compose ve
+navigation bileşenleri ile uygulanmıştır. Kalıcı veri saklama için
+Room veritabanı, küçük ayar ve kimlik bilgileri için DataStore
+kullanılmıştır. ViewModel, oyun durumunu ekrana yansıtmak ve
+durum geçişlerini yönetmek için merkezi rol üstlenmiştir.
+
+\subsection{Oyun Akışı}
+
+Oyun akışı, seviye başlatma, oyuncu hamlesi alma, kelime doğrulama,
+puan hesaplama, tahta güncelleme ve oyun bitiş koşullarını
+değerlendirme adımlarından oluşur. Bu akışta her hamle, oyun
+durumunu günceller ve UI tarafında anlık geribildirim
+üretilir; böylece akıcı ve izlenebilir bir oyun döngüsü sağlanır.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics{ana_ekran.png}
+	\caption{Uygulama Ana Ekranı}
+	\label{fig:ana_ekran}
+\end{figure}
+
+\subsection{Grid Yapısı ve Harf Üretimi}
+
+Oyun tahtası, iki boyutlu kare bir grid üzerinde tanımlanmıştır
+ve farklı zorluk seviyeleri için 6x6, 8x8 ve 10x10 seçenekleri
+sunmaktadır. Her hücre, harf değeri, seçilebilirlik durumu ve
+geçici işaretleme bilgilerini içeren bir veri modeliyle temsil
+edilir; böylece oyun motoru, hamle kontrolü ve güncelleme
+adımlarını hücre bazında yürütebilir.
+
+Harf üretimi, Türkçe dilindeki harf frekansları dikkate alınarak
+ağırlıklı bir dağılımla gerçekleştirilir. Sık kullanılan harfler
+(örn. A, E, I, K, L, M, N, R), orta sıklıktaki harfler ve düşük
+sıklıklı harfler (örn. J, F, G, H gibi) farklı olasılık katsayıları
+ile üretilir. Bu yaklaşım, anlamlı kelime oluşumunu teşvik ederken
+oyun zorluğunun kontrol edilebilir kalmasını sağlar.
+
+Grid oluşturulduktan sonra, tahtada en az bir geçerli kelimenin
+bulunabilirliği algoritmik olarak kontrol edilir. Kelime
+üretilemeyen durumlarda tahta yeniden üretilir veya harfler
+yeniden dağıtılır; böylece kullanıcıya çözülmez bir grid
+gösterilmesi engellenir. Bu kontrol, oynanabilirlik garantisi
+sağlayarak deneyimin kesintisiz ve adil ilerlemesine katkıda
+bulunur.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics{yeni_oyun_ekrani.png}
+	\caption{Yeni Oyun Ekranı}
+	\label{fig:yeni_oyun}
+\end{figure}
+
+\subsection{Harf Seçme ve Kelime Oluşturma}
+
+Oyuncu, grid üzerinde komşu harfleri ardışık olarak seçerek
+kelime oluşturur. Komşuluk kuralı 8 yönlü olarak uygulanır;
+yani yatay, dikey ve çapraz komşular seçim içine dahil
+edilebilir. Aynı hücre, tek bir seçim dizisi içinde yeniden
+kullanılamaz; bu sınır, kelime oluşturmayı tekil ve izlenebilir
+bir rota üzerinden gerçekleştirir.
+
+Seçim sırasında minimum 3 harf koşulu aranır ve bu koşul
+sağlanmadan kelime finalize edilmez. Parmağın kaldırılması
+veya seçim akışının tamamlanması ile kelime oluşturma
+tamamlanır; oluşan dizi doğrulama adımına aktarılır ve
+geçici seçim durumu sıfırlanır.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics{oyun_ekrani.png}
+	\caption{Oyun Ekranı}
+	\label{fig:oyun_ekrani}
+\end{figure}
+
+\subsection{Kelime Doğrulama Mekanizması}
+
+Oluşan kelimeler, uygulama içindeki sözlük veri yapısı üzerinden
+doğrulanır ve geçerlilik durumu belirlenir. Geçerli kelimelerde
+puanlama ve tahta güncelleme akışı çalıştırılır; seçilen hücreler
+temizlenir ve harf düşürme mekaniği devreye girer. Geçersiz
+kelimelerde ise hamle etkisiz sayılır, seçim iptal edilir ve
+oyuncuya geri bildirim sağlanır.
+
+Hamle sayısı, hem geçerli hem de geçersiz kelimelerde azaltılır.
+Bu tercih, stratejik seçim baskısını korur ve oyuncunun her
+denemede dikkatli davranmasını sağlar. Doğrulama mekanizması,
+oyunun dilsel tutarlılığını korurken hamle ekonomisini dengede
+tutar.
+
+\subsection{Puan Hesaplama}
+
+Puanlama, harf bazlı bir sistem üzerinden hesaplanır ve her
+harf için tanımlanan puan değerleri kelime puanını oluşturur.
+Kelime puanı, seçilen harflerin tekil puanlarının toplanması
+ile elde edilir; böylece kelimenin uzunluğu ve harf dağılımı
+doğrudan skora yansır. Bu temel skora, combo ve özel güç
+mekaniklerinden gelen çarpanlar eklenerek hamlelerin etkisi
+ayrıntılı biçimde değerlendirilir.
+
+\subsection{Harf Patlatma ve Yerçekimi Mekaniği}
+
+Geçerli kelime silindikten sonra ilgili hücreler boşaltılır ve
+üst hücrelerdeki harfler yerçekimi etkisiyle aşağıya kayar.
+Boş kalan üst hücreler yeni harflerle doldurulur. Bu güncelleme,
+gridin her hamleden sonra tutarlı ve oynanabilir kalmasını sağlar.
+
+\subsection{Özel Güç Mekanikleri}
+
+Özel güçler, kelime uzunluğuna bağlı olarak üretilir ve
+kelimenin son harfinin bulunduğu hücrede saklanır. 4 harfli
+kelimeler satır temizleme, 5 harfli kelimeler belirli bir
+alanı patlatma, 6 harfli kelimeler sütun temizleme ve 7+
+harfli kelimeler mega patlatma etkisi oluşturur. Bu güçler,
+hücre tekrar seçildiğinde aktive edilir ve ilgili satır,
+sütun veya alan üzerindeki harfleri temizler.
+
+Özel güç aktarımı, hücreye bağlı bir durum olarak saklandığı
+için, gücün kullanımı oyuncunun sonraki hamle planlamasına
+bağlanır. Bu yaklaşım, kelime uzunluğunu teşvik ederken
+tahta temizleme stratejilerinin bilinçli kurulmasını sağlar.
+
+\subsection{Joker Sistemi}
+
+Uygulamada, jokerlerin edinilmesi ve yönetilmesi için
+ayrı bir market ekranı bulunur. Oyuncu, oyuna yüksek
+miktarda altın bakiyesi ile başlar ve bu kaynak ile
+farklı joker türlerini satın alabilir. Satın alınan
+jokerler, Room tabanlı envanter yapısında veya yerel
+veri modellerinde saklanır; böylece oyun yeniden
+açıldığında miktarlar korunur.
+
+Joker türleri; Balık (belirli bir harfi hedefleyerek
+tekil temizleme), Tekerlek (rastgele bir bölgede
+temizleme etkisi), Lolipop Kırıcı (seçilen satır
+ve sütun kesitini patlatma), Serbest Değiştirme
+(seçili bir harfi farklı bir harfe dönüştürme),
+Harf Karıştırma (griddeki harflerin yeniden
+dağıtılması) ve Parti Güçlendiricisi (tahta
+genelinde geniş alan etkisi) olarak tanımlanmıştır.
+Bu jokerler oyun ekranında seçildiğinde, hedefleme
+modu etkinleşir; oyuncu ilgili hücre veya bölgeyi
+işaretleyerek efekti tetikler. Hedefleme tamamlandığında
+joker etkisi uygulanır, hamle akışı güncellenir ve
+envanterdeki joker miktarı azaltılır.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics{market_ekrani.png}
+	\caption{Market Ekranı}
+	\label{fig:market}
+\end{figure}
+
+\subsection{Combo Mekaniği}
+
+Combo mekaniği, ana kelime içinde oluşan anlamlı alt
+kelimelerin ek puan getirmesi üzerinden kurgulanmıştır.
+Seçilen harf dizisinde tespit edilen alt kelimeler, temel
+kelime puanına eklenir; aynı alt kelime birden fazla kez
+sayılmaz ve tekil olarak değerlendirilir. Bu yapı, oyuncuyu
+daha uzun ve iç içe kelimeler kurmaya yönlendirir ve
+puanlama stratejisini zenginleştirir.
+
+\subsection{Skor Tablosu ve Veri Saklama}
+
+Kullanıcı adı, DataStore üzerinde saklanarak uygulama
+yeniden açıldığında kimlik bilgisinin kaybolması
+engellenir. Oyun geçmişi ve skor kayıtları ise Room
+veritabanında tutulur; böylece oyun oturumları arası
+kalıcı veri sağlanır ve raporlama için tutarlı bir
+kaynak elde edilir.
+
+Skor tablosunda toplam oyun sayısı, en yüksek puan,
+ortalama puan, toplam kelime sayısı, en uzun kelime ve
+toplam süre gibi özet istatistikler sunulur. Ayrıca
+geçmiş oyun kartları listelenerek her oturuma ait
+puan, süre ve kelime verileri görüntülenir. Bu
+yaklaşım, kullanıcı deneyimini kalıcı veri ile
+ilişkilendirir ve oyuncunun ilerlemesini izlenebilir
+hale getirir.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics{skor_tablosu_ekrani.png}
+	\caption{Skor Tablosu Ekranı}
+	\label{fig:skor_tablosu}
+\end{figure}
+
+\section{Algoritmalar ve Yalancı Kodlar}
+
+Bu bölümde, Word Crush oyunundaki kritik akışlara ait yalancı kodlar
+verilmektedir. Akışlar, oyunun başlatılması, kelime işleme
+ve oyun içi destek mekaniklerinin uygulanmasını kapsar.
+
+\subsection{Oyun Başlatma ve Grid Üretimi Akışı}
+
+\noindent\textbf{Yalancı Kod:}
+\begin{flushleft}
+\ttfamily
+BAŞLA \\
+KullanıcıBilgisi $\leftarrow$ DataStoreOku \\
+OyunGeçmişi $\leftarrow$ RoomOku \\
+GridBoyutu $\leftarrow$ SeviyeSeçimineGöreBelirle \\
+DÖNGÜ \\
+\hspace*{1em} Grid $\leftarrow$ AğırlıklıHarfÜret(GridBoyutu) \\
+\hspace*{1em} OynanabilirMi $\leftarrow$ KelimeVarMı(Grid) \\
+\hspace*{1em} IF OynanabilirMi İSE ÇIK END IF \\
+END DÖNGÜ \\
+OyunDurumu $\leftarrow$ Başlat(Grid, HamleSayısı, Skor) \\
+BİTİR
+\end{flushleft}
+\normalfont
+
+\subsection{Kelime Seçimi ve Tahta Güncelleme Akışı}
+
+\noindent\textbf{Yalancı Kod:}
+\begin{flushleft}
+\ttfamily
+BAŞLA \\
+Seçim $\leftarrow$ KomşubaşlıHarfSeç \\
+IF SeçimUzunluğu $<$ 3 İSE \\
+\hspace*{1em} HamleAzalt \\
+\hspace*{1em} ÇIK
+END IF \\
+Kelime $\leftarrow$ SeçimiBirleştir \\
+GeçerliMi $\leftarrow$ SözlükKontrol(Kelime) \\
+HamleAzalt \\
+IF GeçerliMi İSE \\
+\hspace*{1em} PuanEkle(HarfPuanıToplam) \\
+\hspace*{1em} ComboPuanEkle(AltKelimeler) \\
+\hspace*{1em} SeçilenHücreleriTemizle \\
+\hspace*{1em} HarfleriDüşür \\
+\hspace*{1em} YeniHarfÜret \\
+ELSE \\
+\hspace*{1em} GeriBildirimGöster \\
+END IF \\
+BİTİR
+\end{flushleft}
+\normalfont
+
+\subsection{Joker Kullanımı ve Skor Kaydı}
+
+\noindent\textbf{Yalancı Kod:}
+\begin{flushleft}
+\ttfamily
+BAŞLA \\
+JokerSeç $\leftarrow$ MarkettenVeyaEnvanterdenSeç \\
+Hedef $\leftarrow$ HücreVeyaBölgeİşaretle \\
+JokerEtkisiUygula(Hedef) \\
+GridGüncelle \\
+OyunBittiMi $\leftarrow$ KontrolEt \\
+IF OyunBitti İSE \\
+\hspace*{1em} ÖzetİstatistikleriHesapla \\
+\hspace*{1em} RoomSkorKaydet \\
+END IF \\
+BİTİR
+\end{flushleft}
+\normalfont
+
+\section{Deneysel Sonuçlar}
+
+Uygulama, Android emülatörü ve gerçek Android cihazlar üzerinde
+çalıştırılmış; temel fonksiyonların ve oyun akışının beklendiği
+şekilde çalıştığı doğrulanmıştır. Aşağıda kritik senaryolar
+bağımsız alt başlıklar altında değerlendirilmiş, akışın doğruluğu
+ve stabilitesi analiz edilmiştir.
+
+\subsection{Kullanıcı Adı Kaydetme}
+
+DataStore üzerinden kullanıcı adının kaydedildiği ve uygulama
+yeniden başlatıldığında geri yüklenebildiği doğrulanmıştır.
+Kimlik bilgisinin UI ve skor tablosu ekranlarında tutarlı
+şekilde görüntülendiği gözlemlenmiştir.
+
+\subsection{Yeni Oyun Başlatma ve Grid Oluşturma}
+
+Yeni oyun başlatma aksiyonunun, belirlenen grid boyutu ile
+tahta üretimini tetiklediği ve oynanabilirlik kontrolünden
+geçen gridin ekrana yansıtıldığı test edilmiştir. Gridin
+çözülmez durumlarda yeniden üretildiği ve kullanıcıya
+geçerli bir tahta sunulduğu doğrulanmıştır.
+
+\subsection{Kelime Doğrulama}
+
+Seçilen harflerin sözlük veri yapısına göre doğrulandığı,
+geçersiz kelimelerde hamlenin iptal edildiği ve geçerli
+kelimelerde oyun akışının ilerlediği gözlemlenmiştir.
+Minimum harf sayısı ve tekrarlı hücre kullanmama
+kurallarının uygulandığı teyit edilmiştir.
+
+\subsection{Puan Güncelleme}
+
+Harf bazlı puanlama sisteminin doğru toplandığı, kelime
+puanının skor tablosuna yansıtıldığı ve özel güç/ combo
+çarpanlarının skoru beklenen biçimde etkilediği
+görülmüştür.
+
+\subsection{Combo Mekaniği}
+
+Ana kelime içindeki anlamlı alt kelimelerin tespit edilip
+ek puan ürettiği; aynı alt kelimenin tekrar sayılmadığı
+senaryolarla doğrulanmıştır. Combo katkılarının skor
+artışına tutarlı şekilde yansıdığı izlenmiştir.
+
+\subsection{Özel Güçler}
+
+4, 5, 6 ve 7+ harfli kelimelerle üretilen özel güçlerin
+son harf konumunda saklandığı ve tekrar seçimde aktive
+olduğu test edilmiştir. Satır/sütun temizleme ve
+patlatma etkilerinin grid güncellemeleriyle uyumlu
+çalıştığı gözlemlenmiştir.
+
+\subsection{Joker Sistemi}
+
+Market ekranından joker satın alma, envantere ekleme
+ve oyun ekranında hedefleme ile kullanma akışları
+test edilmiştir. Joker miktarının Room üzerinde
+kalıcı olarak saklandığı ve kullanıldığında doğru
+şekilde azaldığı görülmüştür.
+
+\subsection{Skor Kaydı}
+
+Oyun bitiminde özet istatistiklerin hesaplanarak Room
+veritabanına kaydedildiği ve skor tablosu ekranında
+geçmiş oyun kartlarıyla birlikte listelendiği doğrulanmıştır.
+Bu akışın, kullanıcı deneyimini kalıcı veri ile
+desteklediği değerlendirilmiştir.
+
+\subsection{Teknik Zorluklar ve Değerlendirme}
+
+Gelişme sürecinde, gesture yönetimi ve seçim izinin
+doğru işlenmesi, Compose state yönetimi, grid güncelleme
+senkronizasyonu ve veri kalıcılığı entegrasyonu gibi
+teknik zorluklarla karşılaşılmıştır. Bu konular, UI ile
+oyun motoru arasında net durum geçişleri tasarlanarak
+çözülmüş; sonuç olarak uygulama beklenen oyun akışını
+stabil biçimde sağlamıştır.
+
+\section{Sonuç}
+
+Bu çalışmada, Android tabanlı Word Crush mobil oyunu tasarlanmış ve
+geliştirilmiş; oyun, belirlenen isterlerin büyük bir bölümünü karşılayan
+stabil bir yapıya kavuşturulmuştur. Grid tabanlı oynanış, kelime
+doğrulama, puanlama, combo, özel güç ve joker mekanikleri birlikte
+çalışacak şekilde bütünleştirilmiş; kullanıcı verisi ve oyun geçmişi
+kalıcı depolama katmanları ile desteklenmiştir.
+
+Teknik açıdan; MVVM mimarisi, Jetpack Compose tabanlı arayüz, Room ve
+DataStore tabanlı veri saklama, oyun motoru ve navigation akışları
+başarıyla kurulmuş ve birbirleriyle uyumlu biçimde çalıştırılmıştır.
+Bu yapının, mobil oyun geliştirme açısından modülerlik, test edilebilirlik
+ve bakım kolaylığı sağladığı; kullanıcı deneyimi açısından ise
+akıcı etkileşim, anlık geribildirim ve ilerleme izleme imkânlarını
+artırdığı değerlendirilmiştir.
+
+Gelecek çalışmalarda daha gelişmiş animasyonların eklenmesi, daha zengin
+bir sözlük veri tabanının kullanılması, çevrim içi skor sistemi ile
+rekabetçi özelliklerin artırılması ve farklı oyun modlarının
+geliştirilmesi önerilmektedir. Bu iyileştirmelerin, oyunun hem
+içerik zenginliğini hem de uzun vadeli oynanabilirliğini
+artıracağı öngörülmektedir.
+
+\vspace{1cm}
+
+\section{Yazar Katkıları}
+
+Bu proje, iki yazarın ortak çalışması ile geliştirilmiştir. Mobil
+uygulama geliştirme süreci, oyun motoru tasarımı, veri saklama
+katmanının kurulması, UI tasarımı, test faaliyetleri ve raporun
+hazırlanması görevleri birlikte ve dengeli biçimde yürütülmüştür.
+Çalışma boyunca kararlar ortaklaşmalı alınmış, uygulama ve dokümantasyon
+aşamalarında eşit sorumluluk paylaşımı sağlanmıştır.
+
+\vspace{1cm}
+
+\begin{thebibliography}{12}
+
+\bibitem{kotlin}
+Kotlin, \emph{Kotlin Documentation}, [Çevrimici]. Erişim: \url{https://kotlinlang.org/docs/home.html}
+
+\bibitem{compose}
+Jetpack Compose, \emph{Compose Documentation}, [Çevrimici]. Erişim: \url{https://developer.android.com/jetpack/compose}
+
+\bibitem{navigation}
+Android Developers, \emph{Navigation Compose}, [Çevrimici]. Erişim: \url{https://developer.android.com/jetpack/compose/navigation}
+
+\bibitem{room}
+Room Persistence Library, \emph{Room Documentation}, [Çevrimici]. Erişim: \url{https://developer.android.com/jetpack/androidx/releases/room}
+
+\bibitem{datastore}
+Android Developers, \emph{DataStore}, [Çevrimici]. Erişim: \url{https://developer.android.com/topic/libraries/architecture/datastore}
+
+\bibitem{material3}
+Material Design 3, \emph{Material 3 in Compose}, [Çevrimici]. Erişim: \url{https://developer.android.com/jetpack/compose/designsystems/material3}
+
+\bibitem{android}
+Android Developers, \emph{Android Documentation}, [Çevrimici]. Erişim: \url{https://developer.android.com/}
+
+\bibitem{gamedesign}
+J. Schell, \emph{The Art of Game Design: A Book of Lenses}, 3rd ed. Boca Raton, FL, USA: CRC Press, 2019.
+
+\bibitem{gamedesign2}
+K. Salen and E. Zimmerman, \emph{Rules of Play: Game Design Fundamentals}. Cambridge, MA, USA: MIT Press, 2004.
+
+\end{thebibliography}
+
+\end{document}

@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.saffet.wordcrushmobile.ui.screens.game.GameScreen
 import com.saffet.wordcrushmobile.ui.screens.home.HomeScreen
 import com.saffet.wordcrushmobile.ui.screens.market.MarketScreen
+import com.saffet.wordcrushmobile.ui.screens.newgame.MoveCountSelectionScreen
 import com.saffet.wordcrushmobile.ui.screens.newgame.NewGameScreen
 import com.saffet.wordcrushmobile.ui.screens.scoreboard.ScoreboardScreen
 import com.saffet.wordcrushmobile.ui.screens.splash.SplashScreen
@@ -68,8 +69,28 @@ fun AppNavHost(
 
         composable(Screen.NewGame.route) {
             NewGameScreen(
-                onStartGame = { rows, cols, moves ->
-                    navController.navigate(Screen.Game.createRoute(rows, cols, moves))
+                onNext = { rows, cols ->
+                    navController.navigate(Screen.MoveSelection.createRoute(rows, cols))
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.MoveSelection.route,
+            arguments = listOf(
+                navArgument(Screen.MoveSelection.ARG_ROWS) { type = NavType.IntType },
+                navArgument(Screen.MoveSelection.ARG_COLS) { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val rows = backStackEntry.arguments?.getInt(Screen.MoveSelection.ARG_ROWS) ?: 8
+            val cols = backStackEntry.arguments?.getInt(Screen.MoveSelection.ARG_COLS) ?: 8
+            
+            MoveCountSelectionScreen(
+                rows = rows,
+                cols = cols,
+                onStartGame = { r, c, moves ->
+                    navController.navigate(Screen.Game.createRoute(r, c, moves))
                 },
                 onBack = { navController.popBackStack() }
             )
