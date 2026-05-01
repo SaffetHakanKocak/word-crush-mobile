@@ -18,6 +18,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.saffet.wordcrushmobile.domain.model.Cell
+import com.saffet.wordcrushmobile.domain.model.JokerType
+import com.saffet.wordcrushmobile.viewmodel.JokerEffectState
+import kotlin.math.abs
+import kotlin.math.sign
 
 /**
  * Tahtayı (grid'i) çizen yüksek seviyeli bileşen.
@@ -61,6 +65,7 @@ fun GameBoard(
     modifier: Modifier = Modifier,
     isJokerTarget: (row: Int, col: Int) -> Boolean = { _, _ -> false },
     isExploding: (row: Int, col: Int) -> Boolean = { _, _ -> false },
+    jokerEffect: JokerEffectState? = null,
     enableDrag: Boolean = true,
     onDragStartCell: (row: Int, col: Int) -> Unit = { _, _ -> },
     onDragOverCell: (row: Int, col: Int) -> Unit = { _, _ -> },
@@ -84,6 +89,7 @@ fun GameBoard(
         val cellPx = with(density) { cellSize.toPx() }
         val gapPx = with(density) { gap.toPx() }
         val stridePx = cellPx + gapPx
+        val effect = jokerEffect
 
         // Offset → (row, col). Cell içinde değilse (gap bölgesi veya grid
         // dışı) null döner → seçim güncellenmez, parmak gap'te dolaşırken
@@ -148,6 +154,14 @@ fun GameBoard(
                 ) {
                     for (c in 0 until cols) {
                         val cell = board[r][c]
+                        val effectOffset = jokerEffectOffset(
+                            row = r,
+                            col = c,
+                            rows = rows,
+                            cols = cols,
+                            stridePx = stridePx,
+                            effect = effect
+                        )
                         BoardCell(
                             letter = cell.letter,
                             isSelected = isSelected(r, c),
@@ -156,6 +170,9 @@ fun GameBoard(
                             modifier = Modifier.size(cellSize),
                             isJokerTarget = isJokerTarget(r, c),
                             isExploding = isExploding(r, c),
+                            isJokerEffect = effect?.isAffected(r, c) == true,
+                            effectTranslationX = effectOffset.first,
+                            effectTranslationY = effectOffset.second,
                             special = cell.special,
                             // Drag aktifken tap devre dışı — tüm pointer
                             // olayları parent gesture layer'ı yönetir.
@@ -168,3 +185,42 @@ fun GameBoard(
         }
     }
 }
+
+private fun jokerEffectOffset(
+    row: Int,
+    col: Int,
+    rows: Int,
+    cols: Int,
+    stridePx: Float,
+    effect: JokerEffectState?
+): Pair<Float, Float> {
+    if (effect == null) return 0f to 0f
+
+    effect.swapped?.let { (from, to) ->
+        if (from.row == row && from.col == col) {
+            return ((to.col - from.col) * stridePx) to ((to.row - from.row) * stridePx)
+        }
+        if (to.row == row && to.col == col) {
+            return ((from.col - to.col) * stridePx) to ((from.row - to.row) * stridePx)
+        }
+    }
+
+    if (effect.type == JokerType.LETTER_SHUFFLE && effect.wholeBoard) {
+        val centerRow = (rows - 1) / 2f
+        val centerCol = (cols - 1) / 2f
+        val rawX = col - centerCol
+        val rawY = row - centerRow
+        val seededX = (((row * 31 + col * 17) % 5) - 2) * 0.08f
+        val seededY = (((row * 19 + col * 23) % 5) - 2) * 0.08f
+        val dirX = if (abs(rawX) < 0.01f) seededX.signOrFallback(1f) else sign(rawX)
+        val dirY = if (abs(rawY) < 0.01f) seededY.signOrFallback(-1f) else sign(rawY)
+        val distance = stridePx * 0.34f
+        return (dirX * distance + seededX * stridePx) to
+            (dirY * distance + seededY * stridePx)
+    }
+
+    return 0f to 0f
+}
+
+private fun Float.signOrFallback(fallback: Float): Float =
+    if (this == 0f) fallback else sign(this)

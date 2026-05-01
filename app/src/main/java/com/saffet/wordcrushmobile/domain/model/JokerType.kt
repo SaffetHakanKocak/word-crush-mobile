@@ -3,49 +3,56 @@ package com.saffet.wordcrushmobile.domain.model
 /**
  * Oyuncunun Market'ten satın alıp oyun sırasında kullanabileceği joker türleri.
  *
- * İsim/açıklama/altın maliyeti PDF şartnamesinin §Jokerler tablosuyla birebir
- * eşleşir. Tek kaynak burası olsun diye display metadata (isim, açıklama,
- * maliyet) enum'un içine gömülmüştür; UI katmanı ayrıca string resource'a
- * ihtiyaç duymaz, Market ve Oyun ekranları aynı değerleri okur.
- *
- * @property displayName Kullanıcıya Türkçe olarak gösterilen ad.
- * @property description Kısa etki açıklaması.
- * @property costGold    Market satın alma fiyatı (altın).
+ * Market ve oyun ekranları aynı sunum bilgisini kullansın diye jokerin görünen
+ * metadata'sı burada merkezileşir.
  */
 enum class JokerType(
     val displayName: String,
     val description: String,
+    val purpose: String,
+    val usageMethod: String,
     val costGold: Int
 ) {
     FISH(
         displayName = "Balık",
-        description = "Grid üzerinde rastgele harfleri yok eder; " +
-            "üstteki harfler aşağı düşer, üstten yenileri gelir.",
+        description = "Gridde rastgele olarak harfleri yok eder; yok olan harflerin üzerindeki harfler aşağı düşer.",
+        purpose = "Sıkışık bölgelerde rastgele temizlik sağlayarak yeni kelime imkanları oluşturur.",
+        usageMethod = "Anında kullanılır · Rastgele etki uygular",
         costGold = 100
     ),
     WHEEL(
         displayName = "Tekerlek",
-        description = "Seçtiğin harfin bulunduğu satır ve sütunu tamamen yok eder.",
+        description = "Seçilen harfin bulunduğu satır ve sütundaki tüm harfleri yok eder.",
+        purpose = "Tahtada geniş bir çapraz etki oluşturarak alan açar.",
+        usageMethod = "Grid üzerinde 1 hücre seçilir",
         costGold = 200
     ),
     LOLLIPOP_HAMMER(
         displayName = "Lolipop Kırıcı",
-        description = "İstediğin tek bir harfi grid'den siler.",
+        description = "Seçilen tek bir harfi yok eder; üstteki harfler aşağı düşer.",
+        purpose = "Kritik tek bir hücreyi kaldırarak yeni eşleşme ve kelime fırsatı oluşturur.",
+        usageMethod = "Grid üzerinde 1 hücre seçilir",
         costGold = 75
     ),
     FREE_SWAP(
         displayName = "Serbest Değiştirme",
-        description = "Bitişik iki harfin yerini değiştirir.",
+        description = "Gridde birbirine temas eden iki harfin yer değiştirmesini sağlar.",
+        purpose = "Mevcut harfleri avantajlı konuma getirerek yeni kelime oluşturmayı kolaylaştırır.",
+        usageMethod = "Grid üzerinde komşu 2 hücre seçilir",
         costGold = 125
     ),
     LETTER_SHUFFLE(
         displayName = "Harf Karıştırma",
-        description = "Grid'deki tüm harfleri yeniden karıştırır.",
+        description = "Gridde bulunan harfleri rastgele karıştırır.",
+        purpose = "Tıkanmış tahtayı yeniden oynanabilir hale getirmek için kullanılır.",
+        usageMethod = "Tüm grid'e uygulanır",
         costGold = 300
     ),
     PARTY_BOOSTER(
         displayName = "Parti Güçlendiricisi",
-        description = "Grid'deki tüm harfleri yok eder; yerine yenileri düşer.",
+        description = "Griddeki tüm harfleri yok eder ve yukarıdan yeniden harf düşmesini sağlar.",
+        purpose = "Tahtayı tamamen yenileyerek oyuncuya yeni başlangıç fırsatı verir.",
+        usageMethod = "Tüm grid'e uygulanır",
         costGold = 400
     );
 }

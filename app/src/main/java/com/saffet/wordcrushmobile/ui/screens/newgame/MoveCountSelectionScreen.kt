@@ -45,8 +45,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.saffet.wordcrushmobile.domain.model.MoveOption
+import com.saffet.wordcrushmobile.ui.components.DecorativeImageScreenContainer
 import com.saffet.wordcrushmobile.ui.components.MoveOptionCard
-import com.saffet.wordcrushmobile.ui.components.ScreenContainer
 import com.saffet.wordcrushmobile.viewmodel.MoveSelectionViewModel
 import kotlinx.coroutines.delay
 
@@ -76,7 +76,7 @@ fun MoveCountSelectionScreen(
         buttonsVisible = true
     }
 
-    ScreenContainer {
+    DecorativeImageScreenContainer {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally

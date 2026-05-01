@@ -9,7 +9,10 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,9 +25,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
-import com.saffet.wordcrushmobile.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,24 +33,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.saffet.wordcrushmobile.ui.components.ScreenContainer
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.saffet.wordcrushmobile.R
+import com.saffet.wordcrushmobile.ui.components.BackgroundImageLayer
 import com.saffet.wordcrushmobile.ui.theme.Elevations
 import com.saffet.wordcrushmobile.ui.theme.WordCrushTheme
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.saffet.wordcrushmobile.viewmodel.SplashViewModel
 import kotlinx.coroutines.delay
 
-/**
- * Uygulama açılış ekranı.
- *
- * SplashViewModel DataStore'dan kullanıcı adını okur ve bir sonraki ekranın
- * route'unu belirler. Burada hedef null değilse [onNavigate] tetiklenerek
- * AppNavHost ilgili ekrana yönlendirir.
- */
 @Composable
 fun SplashScreen(
     onNavigate: (route: String) -> Unit,
@@ -76,12 +71,35 @@ fun SplashScreen(
 
     LaunchedEffect(nextRoute) {
         val route = nextRoute ?: return@LaunchedEffect
-        // Açılış animasyonunun hissedilmesi için kısa bir bekleme.
         delay(SPLASH_NAVIGATION_DELAY_MS)
         onNavigate(route)
     }
 
-    ScreenContainer(scrollable = false) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        BackgroundImageLayer(
+            drawableRes = R.drawable.splash_background,
+            overlayBrush = Brush.verticalGradient(
+                colors = listOf(
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.08f),
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.16f),
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.26f)
+                )
+            )
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.04f),
+                            MaterialTheme.colorScheme.scrim.copy(alpha = 0.08f)
+                        )
+                    )
+                )
+        )
+
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Center,
@@ -90,17 +108,21 @@ fun SplashScreen(
             AnimatedVisibility(
                 visible = showIntro,
                 enter = fadeIn(animationSpec = tween(700)) +
-                    scaleIn(initialScale = 0.92f, animationSpec = tween(700, easing = FastOutSlowInEasing))
+                    scaleIn(
+                        initialScale = 0.92f,
+                        animationSpec = tween(700, easing = FastOutSlowInEasing)
+                    )
             ) {
                 ElevatedCard(
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = Elevations.medium)
+                    elevation = CardDefaults.elevatedCardElevation(
+                        defaultElevation = Elevations.medium
+                    )
                 ) {
                     Column(
-                        modifier = Modifier
-                            .graphicsLayer {
-                                scaleX = glowScale
-                                scaleY = glowScale
-                            },
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = glowScale
+                            scaleY = glowScale
+                        },
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(WordCrushTheme.spacing.sm)
                     ) {
@@ -130,7 +152,10 @@ fun SplashScreen(
                 horizontalArrangement = Arrangement.spacedBy(WordCrushTheme.spacing.sm),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
                 Text(
                     text = "Sözlük ve profil yükleniyor",
                     style = MaterialTheme.typography.bodySmall,

@@ -45,8 +45,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.saffet.wordcrushmobile.domain.model.GridSize
+import com.saffet.wordcrushmobile.ui.components.DecorativeImageScreenContainer
 import com.saffet.wordcrushmobile.ui.components.GridSizeCard
-import com.saffet.wordcrushmobile.ui.components.ScreenContainer
 import com.saffet.wordcrushmobile.viewmodel.NewGameViewModel
 import kotlinx.coroutines.delay
 
@@ -74,7 +74,7 @@ fun NewGameScreen(
         buttonsVisible = true
     }
 
-    ScreenContainer {
+    DecorativeImageScreenContainer {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally

@@ -2,6 +2,7 @@ package com.saffet.wordcrushmobile.ui.components.game
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -10,8 +11,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -25,8 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.saffet.wordcrushmobile.domain.model.SpecialType
@@ -55,6 +62,9 @@ fun BoardCell(
     modifier: Modifier = Modifier,
     isJokerTarget: Boolean = false,
     isExploding: Boolean = false,
+    isJokerEffect: Boolean = false,
+    effectTranslationX: Float = 0f,
+    effectTranslationY: Float = 0f,
     special: SpecialType = SpecialType.NONE,
     clickable: Boolean = true
 ) {
@@ -63,6 +73,7 @@ fun BoardCell(
     // Container rengi: duruma göre animasyonlu geçiş
     val targetContainer: Color = when {
         isExploding   -> MaterialTheme.colorScheme.errorContainer
+        isJokerEffect -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f)
         isJokerTarget -> MaterialTheme.colorScheme.tertiaryContainer
         isLast        -> MaterialTheme.colorScheme.primary
         isSelected    -> MaterialTheme.colorScheme.secondaryContainer
@@ -71,6 +82,7 @@ fun BoardCell(
     }
     val targetContent: Color = when {
         isExploding   -> MaterialTheme.colorScheme.onErrorContainer
+        isJokerEffect -> MaterialTheme.colorScheme.onTertiaryContainer
         isJokerTarget -> MaterialTheme.colorScheme.onTertiaryContainer
         isLast        -> MaterialTheme.colorScheme.onPrimary
         isSelected    -> MaterialTheme.colorScheme.onSecondaryContainer
@@ -80,21 +92,29 @@ fun BoardCell(
 
     val container by animateColorAsState(
         targetContainer,
-        animationSpec = tween(200),
+        animationSpec = tween(
+            durationMillis = CELL_COLOR_MS,
+            easing = FastOutSlowInEasing
+        ),
         label = "cellContainer"
     )
     val content by animateColorAsState(
         targetContent,
-        animationSpec = tween(200),
+        animationSpec = tween(
+            durationMillis = CELL_COLOR_MS,
+            easing = FastOutSlowInEasing
+        ),
         label = "cellContent"
     )
 
     // Ölçek animasyonu
     val targetScale = when {
-        isExploding -> 1.15f
-        isLast      -> 1.08f
-        isSelected  -> 1.03f
-        else        -> 1f
+        isExploding   -> 1.24f
+        isJokerEffect -> 1.08f
+        isLast        -> 1.08f
+        isJokerTarget -> 1.06f
+        isSelected    -> 1.03f
+        else          -> 1f
     }
     val scale by animateFloatAsState(
         targetValue = targetScale,
@@ -105,6 +125,7 @@ fun BoardCell(
     // Elevation animasyonu
     val targetElevation = when {
         isExploding || isLast  -> 8.dp
+        isJokerEffect          -> 7.dp
         isSelected             -> 6.dp
         isJokerTarget          -> 4.dp
         hasSpecial             -> 3.dp
@@ -112,13 +133,17 @@ fun BoardCell(
     }
     val elevation by animateDpAsState(
         targetValue = targetElevation,
-        animationSpec = tween(200),
+        animationSpec = tween(
+            durationMillis = CELL_ELEVATION_MS,
+            easing = FastOutSlowInEasing
+        ),
         label = "cellElevation"
     )
 
     // Kenarlık
     val border = when {
         isExploding   -> BorderStroke(2.dp, MaterialTheme.colorScheme.error)
+        isJokerEffect -> BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary)
         isLast        -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
         isJokerTarget -> BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary)
         isSelected    -> BorderStroke(1.5.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f))
@@ -126,8 +151,57 @@ fun BoardCell(
         else          -> null
     }
 
+    val blastAlpha by animateFloatAsState(
+        targetValue = if (isExploding) 0.9f else 0f,
+        animationSpec = tween(
+            durationMillis = if (isExploding) BLAST_APPEAR_MS else BLAST_RELEASE_MS,
+            easing = FastOutSlowInEasing
+        ),
+        label = "cellBlastAlpha"
+    )
+    val blastScale by animateFloatAsState(
+        targetValue = if (isExploding) 1.42f else 0.82f,
+        animationSpec = tween(
+            durationMillis = BLAST_SCALE_MS,
+            easing = FastOutSlowInEasing
+        ),
+        label = "cellBlastScale"
+    )
+    val movingForJoker = effectTranslationX != 0f || effectTranslationY != 0f
+    val effectX by animateFloatAsState(
+        targetValue = effectTranslationX,
+        animationSpec = tween(
+            durationMillis = if (movingForJoker) JOKER_EFFECT_MOVE_MS else JOKER_EFFECT_SETTLE_MS,
+            delayMillis = if (movingForJoker) JOKER_EFFECT_HOLD_MS else 0,
+            easing = FastOutSlowInEasing
+        ),
+        label = "cellJokerEffectX"
+    )
+    val effectY by animateFloatAsState(
+        targetValue = effectTranslationY,
+        animationSpec = tween(
+            durationMillis = if (movingForJoker) JOKER_EFFECT_MOVE_MS else JOKER_EFFECT_SETTLE_MS,
+            delayMillis = if (movingForJoker) JOKER_EFFECT_HOLD_MS else 0,
+            easing = FastOutSlowInEasing
+        ),
+        label = "cellJokerEffectY"
+    )
+    val jokerGlowAlpha by animateFloatAsState(
+        targetValue = if (isJokerEffect) 0.7f else 0f,
+        animationSpec = tween(
+            durationMillis = if (isJokerEffect) JOKER_GLOW_APPEAR_MS else JOKER_GLOW_RELEASE_MS,
+            easing = FastOutSlowInEasing
+        ),
+        label = "cellJokerGlowAlpha"
+    )
+
     Surface(
-        modifier = modifier.scale(scale),
+        modifier = modifier
+            .graphicsLayer {
+                translationX = effectX
+                translationY = effectY
+            }
+            .scale(scale),
         onClick = if (clickable) onClick else ({}),
         enabled = clickable,
         shape = RoundedCornerShape(14.dp),
@@ -138,6 +212,42 @@ fun BoardCell(
         border = border
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            if (blastAlpha > 0.01f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = blastAlpha
+                            scaleX = blastScale
+                            scaleY = blastScale
+                        }
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.18f))
+                        .border(
+                            width = 2.dp,
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.65f),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                )
+            }
+            if (jokerGlowAlpha > 0.01f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = jokerGlowAlpha
+                            scaleX = 1.12f
+                            scaleY = 1.12f
+                        }
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(
+                            width = 2.dp,
+                            color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.75f),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                )
+            }
+
             // Merkezdeki harf
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -146,14 +256,36 @@ fun BoardCell(
                 AnimatedContent(
                     targetState = letter,
                     transitionSpec = {
-                        (fadeIn(tween(180)) + scaleIn(
-                            initialScale = 0.6f,
-                            animationSpec = tween(180)
-                        )) togetherWith
-                            (fadeOut(tween(140)) + scaleOut(
-                                targetScale = 0.6f,
-                                animationSpec = tween(140)
-                            ))
+                        (
+                            slideInVertically(
+                                animationSpec = tween(
+                                    durationMillis = LETTER_DROP_MS,
+                                    easing = FastOutSlowInEasing
+                                ),
+                                initialOffsetY = { -it * 2 }
+                            ) + fadeIn(tween(LETTER_FADE_IN_MS)) + scaleIn(
+                                initialScale = 0.82f,
+                                animationSpec = tween(
+                                    durationMillis = LETTER_SCALE_IN_MS,
+                                    easing = FastOutSlowInEasing
+                                )
+                            )
+                        ) togetherWith
+                            (
+                                slideOutVertically(
+                                    animationSpec = tween(
+                                        durationMillis = LETTER_OUT_MS,
+                                        easing = FastOutSlowInEasing
+                                    ),
+                                    targetOffsetY = { it / 2 }
+                                ) + fadeOut(tween(LETTER_OUT_MS)) + scaleOut(
+                                    targetScale = 0.78f,
+                                    animationSpec = tween(
+                                        durationMillis = LETTER_OUT_MS,
+                                        easing = FastOutSlowInEasing
+                                    )
+                                )
+                            )
                     },
                     label = "cellLetter"
                 ) { shown ->
@@ -172,8 +304,11 @@ fun BoardCell(
                 transitionSpec = {
                     (fadeIn(tween(200)) + scaleIn(
                         initialScale = 0.2f,
-                        animationSpec = tween(200)
-                    )) togetherWith fadeOut(tween(140))
+                        animationSpec = tween(
+                            durationMillis = SPECIAL_BADGE_IN_MS,
+                            easing = FastOutSlowInEasing
+                        )
+                    )) togetherWith fadeOut(tween(SPECIAL_BADGE_OUT_MS))
                 },
                 label = "cellSpecialBadge",
                 modifier = Modifier
@@ -218,3 +353,20 @@ private fun symbolFor(type: SpecialType): String = when (type) {
     SpecialType.AREA_BLAST   -> "✦"
     SpecialType.MEGA_BLAST   -> "★"
 }
+
+private const val CELL_COLOR_MS: Int = 260
+private const val CELL_ELEVATION_MS: Int = 260
+private const val BLAST_APPEAR_MS: Int = 140
+private const val BLAST_RELEASE_MS: Int = 360
+private const val BLAST_SCALE_MS: Int = 380
+private const val LETTER_DROP_MS: Int = 420
+private const val LETTER_FADE_IN_MS: Int = 280
+private const val LETTER_SCALE_IN_MS: Int = 360
+private const val LETTER_OUT_MS: Int = 220
+private const val SPECIAL_BADGE_IN_MS: Int = 280
+private const val SPECIAL_BADGE_OUT_MS: Int = 220
+private const val JOKER_EFFECT_HOLD_MS: Int = 150
+private const val JOKER_EFFECT_MOVE_MS: Int = 520
+private const val JOKER_EFFECT_SETTLE_MS: Int = 220
+private const val JOKER_GLOW_APPEAR_MS: Int = 180
+private const val JOKER_GLOW_RELEASE_MS: Int = 360

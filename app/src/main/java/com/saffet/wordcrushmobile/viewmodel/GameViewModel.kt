@@ -500,9 +500,19 @@ class GameViewModel(
                     // removedPositions boş — flash adımı atlanır, yalnızca
                     // board swap edilir; harf değişim animasyonu (Cell
                     // içindeki AnimatedContent) geçişi yine belirgin yapar.
-                    if (res.removedPositions.isNotEmpty()) {
-                        _uiState.update { it.copy(explodingPositions = res.removedPositions) }
-                        delay(EXPLOSION_ANIM_MS)
+                    val effect = buildJokerEffectState(
+                        action = action,
+                        result = res,
+                        board = currentBoard
+                    )
+                    if (effect != null || res.removedPositions.isNotEmpty()) {
+                        _uiState.update {
+                            it.copy(
+                                explodingPositions = res.removedPositions,
+                                jokerEffect = effect
+                            )
+                        }
+                        delay(jokerEffectDuration(action, res))
                     }
                     // Faz 2: yeni board'u yerleştir, flash'ı temizle.
                     _uiState.update {
@@ -512,6 +522,7 @@ class GameViewModel(
                             currentWord = "",
                             jokerTargeting = null,
                             explodingPositions = emptySet(),
+                            jokerEffect = null,
                             lastMessage = "${action.type.displayName} kullanıldı"
                         )
                     }
@@ -527,6 +538,57 @@ class GameViewModel(
             }
         }
     }
+
+    private fun buildJokerEffectState(
+        action: JokerAction,
+        result: JokerResult.Success,
+        board: List<List<Cell>>
+    ): JokerEffectState? {
+        result.swapped?.let { swapped ->
+            return JokerEffectState(
+                type = action.type,
+                affectedPositions = setOf(swapped.first, swapped.second),
+                swapped = swapped
+            )
+        }
+
+        if (action.type == JokerType.LETTER_SHUFFLE) {
+            return JokerEffectState(
+                type = action.type,
+                affectedPositions = allBoardPositions(board),
+                wholeBoard = true
+            )
+        }
+
+        if (result.removedPositions.isNotEmpty()) {
+            return JokerEffectState(
+                type = action.type,
+                affectedPositions = result.removedPositions,
+                wholeBoard = action.type == JokerType.PARTY_BOOSTER
+            )
+        }
+
+        return null
+    }
+
+    private fun allBoardPositions(board: List<List<Cell>>): Set<BoardPosition> =
+        buildSet {
+            for (row in board.indices) {
+                for (col in board[row].indices) {
+                    add(BoardPosition(row, col))
+                }
+            }
+        }
+
+    private fun jokerEffectDuration(
+        action: JokerAction,
+        result: JokerResult.Success
+    ): Long =
+        when {
+            result.swapped != null -> JOKER_SWAP_ANIM_MS
+            action.type == JokerType.LETTER_SHUFFLE -> JOKER_SHUFFLE_ANIM_MS
+            else -> EXPLOSION_ANIM_MS
+        }
 
     private fun invalidTargetMessage(reason: JokerResult.InvalidTarget.Reason): String =
         when (reason) {
@@ -773,6 +835,7 @@ class GameViewModel(
                     selectedCells = if (recovery.board != boardSnapshot) emptyList() else state.selectedCells,
                     currentWord = if (recovery.board != boardSnapshot) "" else state.currentWord,
                     explodingPositions = if (recovery.board != boardSnapshot) emptySet() else state.explodingPositions,
+                    jokerEffect = if (recovery.board != boardSnapshot) null else state.jokerEffect,
                     isBoardReady = true,
                     lastMessage = interventionMessage ?: state.lastMessage
                 )
@@ -812,9 +875,12 @@ class GameViewModel(
          * eski halinde kalır ve [GameUiState.explodingPositions] UI
          * tarafından vurgulanır; sonrasında gravity+refill uygulanmış yeni
          * board yerleşir. Değer çok kısa olursa değişiklik hissedilmez, çok
-         * uzunsa oynanış yavaşlar — 260 ms iyi bir orta yol.
+         * uzunsa oynanış yavaşlar — 430 ms patlamayı okunur kılan dengeli
+         * bir aralıktır.
          */
-        private const val EXPLOSION_ANIM_MS: Long = 260L
+        private const val EXPLOSION_ANIM_MS: Long = 430L
+        private const val JOKER_SWAP_ANIM_MS: Long = 720L
+        private const val JOKER_SHUFFLE_ANIM_MS: Long = 760L
 
         /**
          * ViewModel üretim fabrikası. `viewModel(factory = GameViewModel.Factory)`

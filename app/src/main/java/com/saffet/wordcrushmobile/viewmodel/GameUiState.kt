@@ -64,7 +64,14 @@ data class GameUiState(
      * fark edilebilir hale gelir. Board hâlâ eski haliyle render edildiği
      * için pozisyonlar orijinal (silinmeden önceki) hücrelere işaret eder.
      */
-    val explodingPositions: Set<BoardPosition> = emptySet()
+    val explodingPositions: Set<BoardPosition> = emptySet(),
+    /**
+     * Jokerlere ozel, kisa omurlu gorsel efekt bilgisi.
+     *
+     * Bu alan oyun mantigini degistirmez; yalnizca UI'in swap, tum-grid
+     * karistirma veya joker hedef vurgularini daha acik cizebilmesi icindir.
+     */
+    val jokerEffect: JokerEffectState? = null
 ) {
     /** UI kolaylığı: grid'in sütun sayısı (0 ise henüz board üretilmemiş). */
     val cols: Int get() = board.firstOrNull()?.size ?: 0
@@ -93,6 +100,10 @@ data class GameUiState(
      */
     fun isExploding(row: Int, col: Int): Boolean =
         explodingPositions.any { it.row == row && it.col == col }
+
+    /** UI kolayligi: hucre aktif joker efektinin etki alaninda mi? */
+    fun isJokerEffect(row: Int, col: Int): Boolean =
+        jokerEffect?.isAffected(row, col) == true
 }
 
 /**
@@ -112,4 +123,17 @@ data class JokerTargetingState(
     val requiresAdjacent: Boolean = false
 ) {
     val isComplete: Boolean get() = pickedTargets.size >= neededTargets
+}
+
+/**
+ * Joker uygulandiktan hemen sonra UI'in gosterdigi kisa sureli efekt durumu.
+ */
+data class JokerEffectState(
+    val type: JokerType,
+    val affectedPositions: Set<BoardPosition> = emptySet(),
+    val swapped: Pair<BoardPosition, BoardPosition>? = null,
+    val wholeBoard: Boolean = false
+) {
+    fun isAffected(row: Int, col: Int): Boolean =
+        wholeBoard || affectedPositions.any { it.row == row && it.col == col }
 }

@@ -57,9 +57,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.saffet.wordcrushmobile.R
 import com.saffet.wordcrushmobile.domain.model.GameRecord
 import com.saffet.wordcrushmobile.domain.model.GameStats
 import com.saffet.wordcrushmobile.ui.components.AppTopBar
+import com.saffet.wordcrushmobile.ui.components.BackgroundImageLayer
 import com.saffet.wordcrushmobile.ui.components.EmptyStateView
 import com.saffet.wordcrushmobile.ui.components.LoadingView
 import com.saffet.wordcrushmobile.viewmodel.ScoreboardUiState
@@ -85,12 +87,36 @@ fun ScoreboardScreen(
             AppTopBar(title = "Skor Tablosu", onBack = onBack)
         }
     ) { padding ->
-        Surface(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            color = MaterialTheme.colorScheme.background
+                .padding(padding)
         ) {
+            BackgroundImageLayer(
+                drawableRes = R.drawable.scoreboard_bg,
+                overlayBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.14f),
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.3f),
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.44f)
+                    )
+                )
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.04f),
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.08f),
+                                MaterialTheme.colorScheme.scrim.copy(alpha = 0.08f)
+                            )
+                        )
+                    )
+            )
+
             when {
                 state.isLoading -> LoadingState()
                 state.isEmpty   -> EmptyState()
@@ -240,7 +266,7 @@ private fun StatCard(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -297,7 +323,7 @@ private fun GameRecordCard(record: GameRecord, gameNumber: Int) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
