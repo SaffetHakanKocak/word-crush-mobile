@@ -96,6 +96,7 @@ class GameViewModel(
      * kalan hesap güncel olmayan bir sonuç yazmaz.
      */
     private var availableWordsJob: Job? = null
+    private var gravityAnimationId: Long = 0L
 
     private val _uiState = MutableStateFlow(
         GameUiState(
@@ -514,6 +515,11 @@ class GameViewModel(
                         }
                         delay(jokerEffectDuration(action, res))
                     }
+                    val gravityAnimation = buildGravityAnimationState(
+                        oldBoard = currentBoard,
+                        removedPositions = res.removedPositions,
+                        preservedPositions = emptySet()
+                    )
                     // Faz 2: yeni board'u yerleştir, flash'ı temizle.
                     _uiState.update {
                         it.copy(
@@ -523,6 +529,8 @@ class GameViewModel(
                             jokerTargeting = null,
                             explodingPositions = emptySet(),
                             jokerEffect = null,
+                            specialEffects = emptyList(),
+                            gravityAnimation = gravityAnimation,
                             lastMessage = "${action.type.displayName} kullanıldı"
                         )
                     }
@@ -644,17 +652,29 @@ class GameViewModel(
         // PDF §6 "Harf Patlatma Mekaniği": seçimdeki özeller tetiklenir,
         // kelime uzunluğuna göre son hücreye yeni bir özel simge bırakılır.
         // applyWord bu adımı atomik yapar — çıktısı yeni board + meta.
-        val result = engine.applyWord(_uiState.value.board, cells)
+        val boardBefore = _uiState.value.board
+        val result = engine.applyWord(boardBefore, cells)
 
         // Faz 1: seçili hücreleri patlama vurgusu ile göster; board hâlâ
         // eski. `selectedCells`'i boşaltıyoruz ki seçim vurgusu flash'ın
         // önüne geçmesin.
-        val explodingPositions = cells.map { BoardPosition(it.row, it.col) }.toSet()
+        val explodingPositions = result.removedPositions
+        val specialEffects = buildSpecialEffectStates(boardBefore, cells)
+        val preservedPositions = result.plantedSpecial
+            ?.let { setOf(BoardPosition(it.row, it.col)) }
+            ?: emptySet()
+        val gravityAnimation = buildGravityAnimationState(
+            oldBoard = boardBefore,
+            removedPositions = result.removedPositions,
+            preservedPositions = preservedPositions
+        )
         _uiState.update { s ->
             s.copy(
                 selectedCells = emptyList(),
                 currentWord = "",
                 explodingPositions = explodingPositions,
+                specialEffects = specialEffects,
+                gravityAnimation = null,
                 lastMessage = buildAcceptMessage(combo, totalPoints, result)
             )
         }
@@ -669,7 +689,9 @@ class GameViewModel(
                 remainingMoves = newMoves,
                 foundWords = s.foundWords + played,
                 isGameOver = newMoves <= 0,
-                explodingPositions = emptySet()
+                explodingPositions = emptySet(),
+                specialEffects = emptyList(),
+                gravityAnimation = gravityAnimation
             )
         }
 
@@ -722,6 +744,135 @@ class GameViewModel(
         return if (fragments.isEmpty()) base
         else "$base · ${fragments.joinToString(" · ")}"
     }
+
+    private fun buildGravityAnimationState(
+        oldBoard: List<List<Cell>>,
+        removedPositions: Set<BoardPosition>,
+        preservedPositions: Set<BoardPosition>
+    ): GravityAnimationState? {
+        if (oldBoard.isEmpty()) return null
+        if (removedPositions.isEmpty() && preservedPositions.isEmpty()) return null
+
+        val rows = oldBoard.size
+        val cols = oldBoard.firstOrNull()?.size ?: return null
+        val motions = LinkedHashMap<BoardPosition, GravityCellMotion>()
+
+        for (col in 0 until cols) {
+            var segmentStart = 0
+            for (row in 0..rows) {
+                val atEnd = row == rows
+                val fixedHere = !atEnd && BoardPosition(row, col) in preservedPositions
+                if (fixedHere || atEnd) {
+                    appendGravitySegmentMotions(
+                        col = col,
+                        fromInclusive = segmentStart,
+                        toExclusive = row,
+                        removedPositions = removedPositions,
+                        preservedPositions = preservedPositions,
+                        motions = motions
+                    )
+                    if (fixedHere) segmentStart = row + 1
+                }
+            }
+        }
+
+        if (motions.isEmpty()) return null
+        gravityAnimationId += 1
+        return GravityAnimationState(id = gravityAnimationId, motions = motions)
+    }
+
+    private fun appendGravitySegmentMotions(
+        col: Int,
+        fromInclusive: Int,
+        toExclusive: Int,
+        removedPositions: Set<BoardPosition>,
+        preservedPositions: Set<BoardPosition>,
+        motions: MutableMap<BoardPosition, GravityCellMotion>
+    ) {
+        val size = toExclusive - fromInclusive
+        if (size <= 0) return
+
+        val survivorRows = ArrayList<Int>(size)
+        for (row in fromInclusive until toExclusive) {
+            val pos = BoardPosition(row, col)
+            if (pos !in removedPositions && pos !in preservedPositions) {
+                survivorRows.add(row)
+            }
+        }
+
+        val emptyCount = size - survivorRows.size
+        for (i in 0 until emptyCount) {
+            val targetRow = fromInclusive + i
+            val entryRows = emptyCount - i
+            motions[BoardPosition(targetRow, col)] = GravityCellMotion(
+                initialOffsetRows = -entryRows.toFloat(),
+                distanceRows = entryRows,
+                isNewLetter = true
+            )
+        }
+
+        survivorRows.forEachIndexed { index, oldRow ->
+            val targetRow = fromInclusive + emptyCount + index
+            val offsetRows = oldRow - targetRow
+            if (offsetRows != 0) {
+                motions[BoardPosition(targetRow, col)] = GravityCellMotion(
+                    initialOffsetRows = offsetRows.toFloat(),
+                    distanceRows = kotlin.math.abs(offsetRows),
+                    isNewLetter = false
+                )
+            }
+        }
+    }
+
+    private fun buildSpecialEffectStates(
+        board: List<List<Cell>>,
+        cells: List<Cell>
+    ): List<SpecialEffectState> =
+        cells.mapNotNull { selected ->
+            val live = board.getOrNull(selected.row)?.getOrNull(selected.col) ?: return@mapNotNull null
+            if (live.special == SpecialType.NONE) return@mapNotNull null
+            val origin = BoardPosition(live.row, live.col)
+
+            SpecialEffectState(
+                type = live.special,
+                origin = origin,
+                affectedPositions = affectedPositionsForSpecial(
+                    type = live.special,
+                    origin = origin,
+                    rows = board.size,
+                    cols = board.firstOrNull()?.size ?: 0
+                )
+            )
+        }
+
+    private fun affectedPositionsForSpecial(
+        type: SpecialType,
+        origin: BoardPosition,
+        rows: Int,
+        cols: Int
+    ): Set<BoardPosition> =
+        buildSet {
+            when (type) {
+                SpecialType.NONE -> Unit
+                SpecialType.ROW_CLEAR -> {
+                    for (col in 0 until cols) add(BoardPosition(origin.row, col))
+                }
+                SpecialType.COLUMN_CLEAR -> {
+                    for (row in 0 until rows) add(BoardPosition(row, origin.col))
+                }
+                SpecialType.AREA_BLAST,
+                SpecialType.MEGA_BLAST -> {
+                    val radius = if (type == SpecialType.AREA_BLAST) 1 else 2
+                    for (row in (origin.row - radius)..(origin.row + radius)) {
+                        for (col in (origin.col - radius)..(origin.col + radius)) {
+                            if (row in 0 until rows && col in 0 until cols) {
+                                add(BoardPosition(row, col))
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
     private fun specialTypeLabel(type: SpecialType): String = when (type) {
         SpecialType.NONE         -> ""

@@ -1,61 +1,45 @@
 package com.saffet.wordcrushmobile.ui.components.game
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.saffet.wordcrushmobile.domain.engine.BoardPosition
 import com.saffet.wordcrushmobile.domain.model.Cell
 import com.saffet.wordcrushmobile.domain.model.JokerType
+import com.saffet.wordcrushmobile.domain.model.SpecialType
+import com.saffet.wordcrushmobile.viewmodel.GravityAnimationState
 import com.saffet.wordcrushmobile.viewmodel.JokerEffectState
+import com.saffet.wordcrushmobile.viewmodel.SpecialEffectState
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.sign
 
-/**
- * Tahtayı (grid'i) çizen yüksek seviyeli bileşen.
- *
- * İki etkileşim yolu destekler:
- *  1. **Drag tabanlı seçim (varsayılan, PDF §Oyun Akışı).** `enableDrag=true`
- *     iken parent layer üzerinde bir `pointerInput` çalışır; parmak ilk
- *     temas ettiğinde [onDragStartCell], üzerinden geçtiği her yeni hücrede
- *     [onDragOverCell], kaldırıldığında [onDragEnd] (cell üzerindeyse) ya da
- *     [onDragCancel] (grid dışıysa) tetiklenir. Bu modda hücre tap'i devre
- *     dışı bırakılır, çünkü drag zaten ilk temastan itibaren seçim yönetir.
- *  2. **Tap tabanlı seçim (joker targeting için).** `enableDrag=false` iken
- *     drag layer'ı devre dışıdır; her hücre normal `onCellClick` ile çalışır.
- *     Bu, FREE_SWAP / WHEEL / LOLLIPOP gibi hedef bekleyen jokerlerde net
- *     ve kazasız seçim sağlar.
- *
- * - Grid kare olacak şekilde ekran genişliğine göre boyutlanır.
- * - Her hücre [BoardCell] ile çizilir.
- *
- * @param board            Grid matrisi.
- * @param isSelected       Verilen (row, col) seçimde mi?
- * @param isLastSelected   Verilen (row, col) seçim zincirinin sonuncusu mu?
- * @param onCellClick      Tap davranışı (yalnızca `enableDrag=false` iken
- *                         kullanılır — ör. joker targeting).
- * @param isJokerTarget    Verilen (row, col) aktif joker targeting modunda
- *                         hedef olarak seçilmiş mi?
- * @param isExploding      Verilen (row, col) şu an "patlama" animasyonunda mı?
- * @param enableDrag       Drag gesture layer'ı aktif mi (default `true`).
- * @param onDragStartCell  Parmak ilk temas ettiğinde (row, col).
- * @param onDragOverCell   Parmak yeni bir cell'e girdiğinde (row, col).
- * @param onDragEnd        Parmak bir cell üzerinde kaldırıldığında (submit).
- * @param onDragCancel     Parmak grid dışında kaldırıldığında / jest
- *                         sistem tarafından iptal edildiğinde.
- */
 @Composable
 fun GameBoard(
     board: List<List<Cell>>,
@@ -66,6 +50,8 @@ fun GameBoard(
     isJokerTarget: (row: Int, col: Int) -> Boolean = { _, _ -> false },
     isExploding: (row: Int, col: Int) -> Boolean = { _, _ -> false },
     jokerEffect: JokerEffectState? = null,
+    specialEffects: List<SpecialEffectState> = emptyList(),
+    gravityAnimation: GravityAnimationState? = null,
     enableDrag: Boolean = true,
     onDragStartCell: (row: Int, col: Int) -> Unit = { _, _ -> },
     onDragOverCell: (row: Int, col: Int) -> Unit = { _, _ -> },
@@ -73,8 +59,8 @@ fun GameBoard(
     onDragCancel: () -> Unit = {}
 ) {
     if (board.isEmpty()) return
-    val cols = board.first().size
     val rows = board.size
+    val cols = board.first().size
 
     BoxWithConstraints(
         modifier = modifier.fillMaxWidth(),
@@ -83,24 +69,19 @@ fun GameBoard(
         val gap = 6.dp
         val totalGapWidth = gap * (cols - 1)
         val cellSize = (maxWidth - totalGapWidth) / cols
+        val boardHeight = cellSize * rows + gap * (rows - 1)
 
-        // Dp → px dönüşümü. pointerInput konum hesabı piksel uzayındadır.
         val density = LocalDensity.current
         val cellPx = with(density) { cellSize.toPx() }
         val gapPx = with(density) { gap.toPx() }
         val stridePx = cellPx + gapPx
         val effect = jokerEffect
 
-        // Offset → (row, col). Cell içinde değilse (gap bölgesi veya grid
-        // dışı) null döner → seçim güncellenmez, parmak gap'te dolaşırken
-        // sessizce en son hücrede kalır.
         fun toRowCol(offset: Offset): Pair<Int, Int>? {
-            if (stridePx <= 0f) return null
-            if (offset.x < 0f || offset.y < 0f) return null
+            if (stridePx <= 0f || offset.x < 0f || offset.y < 0f) return null
             val colIdx = (offset.x / stridePx).toInt()
             val rowIdx = (offset.y / stridePx).toInt()
             if (rowIdx !in 0 until rows || colIdx !in 0 until cols) return null
-            // Gap bölgesinde mi? (her stride'ın ilk cellPx'i cell, kalan gap)
             val localX = offset.x - colIdx * stridePx
             val localY = offset.y - rowIdx * stridePx
             if (localX > cellPx || localY > cellPx) return null
@@ -111,21 +92,15 @@ fun GameBoard(
             Modifier.pointerInput(cellPx, gapPx, rows, cols, enableDrag) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    val startRc = toRowCol(down.position)
-                    if (startRc == null) {
-                        // İlk temas gap veya boş alanda → bu jest'i atla.
-                        return@awaitEachGesture
-                    }
+                    val startRc = toRowCol(down.position) ?: return@awaitEachGesture
                     onDragStartCell(startRc.first, startRc.second)
-                    // Child clickable'lara gitmesin diye ilk down'ı tüket.
                     down.consume()
 
-                    var lastRc: Pair<Int, Int> = startRc
+                    var lastRc = startRc
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull() ?: break
                         if (!change.pressed) {
-                            // Parmak kaldırıldı.
                             val endRc = toRowCol(change.position)
                             if (endRc != null) onDragEnd() else onDragCancel()
                             change.consume()
@@ -144,46 +119,190 @@ fun GameBoard(
             Modifier
         }
 
-        Column(
-            modifier = dragModifier,
-            verticalArrangement = Arrangement.spacedBy(gap)
+        Box(
+            modifier = dragModifier.size(width = maxWidth, height = boardHeight)
         ) {
-            for (r in 0 until rows) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(gap)
-                ) {
-                    for (c in 0 until cols) {
-                        val cell = board[r][c]
-                        val effectOffset = jokerEffectOffset(
-                            row = r,
-                            col = c,
-                            rows = rows,
-                            cols = cols,
-                            stridePx = stridePx,
-                            effect = effect
-                        )
-                        BoardCell(
-                            letter = cell.letter,
-                            isSelected = isSelected(r, c),
-                            isLast = isLastSelected(r, c),
-                            onClick = { onCellClick(cell) },
-                            modifier = Modifier.size(cellSize),
-                            isJokerTarget = isJokerTarget(r, c),
-                            isExploding = isExploding(r, c),
-                            isJokerEffect = effect?.isAffected(r, c) == true,
-                            effectTranslationX = effectOffset.first,
-                            effectTranslationY = effectOffset.second,
-                            special = cell.special,
-                            // Drag aktifken tap devre dışı — tüm pointer
-                            // olayları parent gesture layer'ı yönetir.
-                            clickable = !enableDrag
-                        )
+            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                for (r in 0 until rows) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        for (c in 0 until cols) {
+                            val cell = board[r][c]
+                            val motion = gravityAnimation?.motions?.get(BoardPosition(r, c))
+                            val effectOffset = jokerEffectOffset(
+                                row = r,
+                                col = c,
+                                rows = rows,
+                                cols = cols,
+                                stridePx = stridePx,
+                                effect = effect
+                            )
+                            BoardCell(
+                                letter = cell.letter,
+                                isSelected = isSelected(r, c),
+                                isLast = isLastSelected(r, c),
+                                onClick = { onCellClick(cell) },
+                                modifier = Modifier.size(cellSize),
+                                isJokerTarget = isJokerTarget(r, c),
+                                isExploding = isExploding(r, c),
+                                isJokerEffect = effect?.isAffected(r, c) == true,
+                                effectTranslationX = effectOffset.first,
+                                effectTranslationY = effectOffset.second,
+                                gravityInitialOffsetY = (motion?.initialOffsetRows ?: 0f) * stridePx,
+                                gravityDistanceRows = motion?.distanceRows ?: 0,
+                                gravityAnimationId = gravityAnimation?.id ?: 0L,
+                                isNewFromGravity = motion?.isNewLetter == true,
+                                special = cell.special,
+                                clickable = !enableDrag
+                            )
+                        }
+                        Spacer(Modifier.width(0.dp))
                     }
-                    Spacer(Modifier.width(0.dp))
                 }
+            }
+
+            BoardEffectOverlay(
+                rows = rows,
+                cols = cols,
+                cellPx = cellPx,
+                gapPx = gapPx,
+                jokerEffect = effect,
+                specialEffects = specialEffects,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Composable
+private fun BoardEffectOverlay(
+    rows: Int,
+    cols: Int,
+    cellPx: Float,
+    gapPx: Float,
+    jokerEffect: JokerEffectState?,
+    specialEffects: List<SpecialEffectState>,
+    modifier: Modifier = Modifier
+) {
+    val active = jokerEffect != null || specialEffects.isNotEmpty()
+    val progress by animateFloatAsState(
+        targetValue = if (active) 1f else 0f,
+        animationSpec = tween(durationMillis = BOARD_EFFECT_MS, easing = FastOutSlowInEasing),
+        label = "boardEffectProgress"
+    )
+    if (progress <= 0.01f && !active) return
+
+    Canvas(modifier = modifier) {
+        val stride = cellPx + gapPx
+        val boardWidth = cols * cellPx + (cols - 1) * gapPx
+        val boardHeight = rows * cellPx + (rows - 1) * gapPx
+        val corner = cellPx * 0.22f
+
+        fun topLeft(pos: BoardPosition): Offset =
+            Offset(pos.col * stride, pos.row * stride)
+
+        fun center(pos: BoardPosition): Offset =
+            topLeft(pos) + Offset(cellPx / 2f, cellPx / 2f)
+
+        fun drawCellGlow(pos: BoardPosition, color: Color, alpha: Float) {
+            if (pos.row !in 0 until rows || pos.col !in 0 until cols) return
+            drawRoundRect(
+                color = color.copy(alpha = alpha),
+                topLeft = topLeft(pos),
+                size = Size(cellPx, cellPx),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(corner, corner)
+            )
+            drawRoundRect(
+                color = color.copy(alpha = alpha * 1.4f),
+                topLeft = topLeft(pos),
+                size = Size(cellPx, cellPx),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(corner, corner),
+                style = Stroke(width = max(2f, cellPx * 0.045f))
+            )
+        }
+
+        jokerEffect?.let { effect ->
+            val jokerColor = Color(0xFF7C4DFF)
+            val alpha = 0.10f + 0.18f * (1f - abs(progress - 0.55f))
+            val affected = if (effect.wholeBoard) {
+                buildSet {
+                    for (row in 0 until rows) {
+                        for (col in 0 until cols) add(BoardPosition(row, col))
+                    }
+                }
+            } else {
+                effect.affectedPositions
+            }
+            affected.forEach { drawCellGlow(it, jokerColor, alpha) }
+
+            if (effect.wholeBoard) {
+                val sweepX = boardWidth * progress
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        0f to Color.Transparent,
+                        0.5f to jokerColor.copy(alpha = 0.32f),
+                        1f to Color.Transparent,
+                        startX = sweepX - cellPx,
+                        endX = sweepX + cellPx
+                    ),
+                    topLeft = Offset.Zero,
+                    size = Size(boardWidth, boardHeight)
+                )
+            }
+        }
+
+        specialEffects.forEach { effect ->
+            val color = colorFor(effect.type)
+            val alpha = 0.16f + 0.20f * (1f - abs(progress - 0.45f))
+            effect.affectedPositions.forEach { drawCellGlow(it, color, alpha) }
+
+            when (effect.type) {
+                SpecialType.ROW_CLEAR -> {
+                    val y = effect.origin.row * stride + cellPx / 2f
+                    drawLine(
+                        color = color.copy(alpha = 0.85f),
+                        start = Offset(0f, y),
+                        end = Offset(boardWidth * progress, y),
+                        strokeWidth = cellPx * 0.16f,
+                        cap = StrokeCap.Round
+                    )
+                }
+                SpecialType.COLUMN_CLEAR -> {
+                    val x = effect.origin.col * stride + cellPx / 2f
+                    drawLine(
+                        color = color.copy(alpha = 0.85f),
+                        start = Offset(x, 0f),
+                        end = Offset(x, boardHeight * progress),
+                        strokeWidth = cellPx * 0.16f,
+                        cap = StrokeCap.Round
+                    )
+                }
+                SpecialType.AREA_BLAST,
+                SpecialType.MEGA_BLAST -> {
+                    val radius = if (effect.type == SpecialType.AREA_BLAST) 1.55f else 2.65f
+                    drawCircle(
+                        color = color.copy(alpha = 0.28f * (1f - progress * 0.35f)),
+                        radius = cellPx * radius * progress,
+                        center = center(effect.origin),
+                        style = Stroke(width = cellPx * 0.10f)
+                    )
+                    drawCircle(
+                        color = color.copy(alpha = 0.18f),
+                        radius = cellPx * radius * 0.74f * progress,
+                        center = center(effect.origin)
+                    )
+                }
+                SpecialType.NONE -> Unit
             }
         }
     }
+}
+
+private fun colorFor(type: SpecialType): Color = when (type) {
+    SpecialType.ROW_CLEAR -> Color(0xFF00A7B5)
+    SpecialType.COLUMN_CLEAR -> Color(0xFFFFB300)
+    SpecialType.AREA_BLAST -> Color(0xFFFF7043)
+    SpecialType.MEGA_BLAST -> Color(0xFFE040FB)
+    SpecialType.NONE -> Color.Transparent
 }
 
 private fun jokerEffectOffset(
@@ -214,7 +333,7 @@ private fun jokerEffectOffset(
         val seededY = (((row * 19 + col * 23) % 5) - 2) * 0.08f
         val dirX = if (abs(rawX) < 0.01f) seededX.signOrFallback(1f) else sign(rawX)
         val dirY = if (abs(rawY) < 0.01f) seededY.signOrFallback(-1f) else sign(rawY)
-        val distance = stridePx * 0.34f
+        val distance = stridePx * 0.28f
         return (dirX * distance + seededX * stridePx) to
             (dirY * distance + seededY * stridePx)
     }
@@ -224,3 +343,5 @@ private fun jokerEffectOffset(
 
 private fun Float.signOrFallback(fallback: Float): Float =
     if (this == 0f) fallback else sign(this)
+
+private const val BOARD_EFFECT_MS: Int = 360

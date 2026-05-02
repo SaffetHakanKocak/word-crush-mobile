@@ -3,7 +3,6 @@ package com.saffet.wordcrushmobile.ui.components.game
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -14,6 +13,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,7 +27,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,6 +68,10 @@ fun BoardCell(
     isJokerEffect: Boolean = false,
     effectTranslationX: Float = 0f,
     effectTranslationY: Float = 0f,
+    gravityInitialOffsetY: Float = 0f,
+    gravityDistanceRows: Int = 0,
+    gravityAnimationId: Long = 0L,
+    isNewFromGravity: Boolean = false,
     special: SpecialType = SpecialType.NONE,
     clickable: Boolean = true
 ) {
@@ -131,14 +138,7 @@ fun BoardCell(
         hasSpecial             -> 3.dp
         else                   -> 2.dp
     }
-    val elevation by animateDpAsState(
-        targetValue = targetElevation,
-        animationSpec = tween(
-            durationMillis = CELL_ELEVATION_MS,
-            easing = FastOutSlowInEasing
-        ),
-        label = "cellElevation"
-    )
+    val elevation = targetElevation
 
     // Kenarlık
     val border = when {
@@ -159,14 +159,7 @@ fun BoardCell(
         ),
         label = "cellBlastAlpha"
     )
-    val blastScale by animateFloatAsState(
-        targetValue = if (isExploding) 1.42f else 0.82f,
-        animationSpec = tween(
-            durationMillis = BLAST_SCALE_MS,
-            easing = FastOutSlowInEasing
-        ),
-        label = "cellBlastScale"
-    )
+    val blastScale = if (isExploding) 1.32f else 0.9f
     val movingForJoker = effectTranslationX != 0f || effectTranslationY != 0f
     val effectX by animateFloatAsState(
         targetValue = effectTranslationX,
@@ -186,20 +179,40 @@ fun BoardCell(
         ),
         label = "cellJokerEffectY"
     )
-    val jokerGlowAlpha by animateFloatAsState(
-        targetValue = if (isJokerEffect) 0.7f else 0f,
+    val jokerGlowAlpha = if (isJokerEffect) 0.28f else 0f
+    var gravityTargetY by androidx.compose.runtime.remember(gravityAnimationId) {
+        mutableFloatStateOf(gravityInitialOffsetY)
+    }
+    var gravityTargetAlpha by androidx.compose.runtime.remember(gravityAnimationId) {
+        mutableFloatStateOf(if (isNewFromGravity) 0.35f else 1f)
+    }
+    LaunchedEffect(gravityAnimationId) {
+        gravityTargetY = 0f
+        gravityTargetAlpha = 1f
+    }
+    val gravityY by animateFloatAsState(
+        targetValue = gravityTargetY,
         animationSpec = tween(
-            durationMillis = if (isJokerEffect) JOKER_GLOW_APPEAR_MS else JOKER_GLOW_RELEASE_MS,
+            durationMillis = gravityDurationMillis(gravityDistanceRows),
+            easing = LinearOutSlowInEasing
+        ),
+        label = "cellGravityY"
+    )
+    val gravityAlpha by animateFloatAsState(
+        targetValue = gravityTargetAlpha,
+        animationSpec = tween(
+            durationMillis = GRAVITY_FADE_MS,
             easing = FastOutSlowInEasing
         ),
-        label = "cellJokerGlowAlpha"
+        label = "cellGravityAlpha"
     )
 
     Surface(
         modifier = modifier
             .graphicsLayer {
                 translationX = effectX
-                translationY = effectY
+                translationY = effectY + gravityY
+                alpha = gravityAlpha
             }
             .scale(scale),
         onClick = if (clickable) onClick else ({}),
@@ -354,11 +367,13 @@ private fun symbolFor(type: SpecialType): String = when (type) {
     SpecialType.MEGA_BLAST   -> "★"
 }
 
+private fun gravityDurationMillis(distanceRows: Int): Int =
+    (GRAVITY_BASE_MS + distanceRows.coerceAtMost(5) * GRAVITY_PER_ROW_MS)
+        .coerceAtMost(GRAVITY_MAX_MS)
+
 private const val CELL_COLOR_MS: Int = 260
-private const val CELL_ELEVATION_MS: Int = 260
 private const val BLAST_APPEAR_MS: Int = 140
 private const val BLAST_RELEASE_MS: Int = 360
-private const val BLAST_SCALE_MS: Int = 380
 private const val LETTER_DROP_MS: Int = 420
 private const val LETTER_FADE_IN_MS: Int = 280
 private const val LETTER_SCALE_IN_MS: Int = 360
@@ -368,5 +383,7 @@ private const val SPECIAL_BADGE_OUT_MS: Int = 220
 private const val JOKER_EFFECT_HOLD_MS: Int = 150
 private const val JOKER_EFFECT_MOVE_MS: Int = 520
 private const val JOKER_EFFECT_SETTLE_MS: Int = 220
-private const val JOKER_GLOW_APPEAR_MS: Int = 180
-private const val JOKER_GLOW_RELEASE_MS: Int = 360
+private const val GRAVITY_BASE_MS: Int = 260
+private const val GRAVITY_PER_ROW_MS: Int = 55
+private const val GRAVITY_MAX_MS: Int = 560
+private const val GRAVITY_FADE_MS: Int = 180

@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
@@ -56,12 +57,12 @@ fun UsernameScreen(
 
     ScreenContainer {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxSize()
+                .fillMaxWidth(),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(56.dp))
-
             AppSectionCard(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -142,8 +143,6 @@ fun UsernameScreen(
                     )
                 }
             }
-
-            Spacer(Modifier.height(24.dp))
         }
     }
 }

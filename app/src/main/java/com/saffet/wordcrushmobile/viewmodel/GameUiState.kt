@@ -4,6 +4,7 @@ import com.saffet.wordcrushmobile.domain.engine.BoardPosition
 import com.saffet.wordcrushmobile.domain.model.Cell
 import com.saffet.wordcrushmobile.domain.model.JokerType
 import com.saffet.wordcrushmobile.domain.model.PlayedWord
+import com.saffet.wordcrushmobile.domain.model.SpecialType
 
 /**
  * [GameViewModel]'in UI'a yaydığı tek kaynaklı (single source of truth) state.
@@ -71,7 +72,18 @@ data class GameUiState(
      * Bu alan oyun mantigini degistirmez; yalnizca UI'in swap, tum-grid
      * karistirma veya joker hedef vurgularini daha acik cizebilmesi icindir.
      */
-    val jokerEffect: JokerEffectState? = null
+    val jokerEffect: JokerEffectState? = null,
+    /**
+     * Kelime patlatma sirasinda tetiklenen ozel guclerin kisa omurlu UI
+     * metadata'si. Motorun sonucunu degistirmez; sadece board overlay'in
+     * satir/sutun/alan/mega etkisini daha okunur cizmesini saglar.
+     */
+    val specialEffects: List<SpecialEffectState> = emptyList(),
+    /**
+     * Gravity/refill sonucunda yeni board yerlesirken her hedef hucrenin
+     * nereden baslayip yerine oturacagini anlatan UI-only animasyon bilgisi.
+     */
+    val gravityAnimation: GravityAnimationState? = null
 ) {
     /** UI kolaylığı: grid'in sütun sayısı (0 ise henüz board üretilmemiş). */
     val cols: Int get() = board.firstOrNull()?.size ?: 0
@@ -137,3 +149,23 @@ data class JokerEffectState(
     fun isAffected(row: Int, col: Int): Boolean =
         wholeBoard || affectedPositions.any { it.row == row && it.col == col }
 }
+
+/**
+ * Ozel guc efektinin gorsel katman icin hedef bilgisi.
+ */
+data class SpecialEffectState(
+    val type: SpecialType,
+    val origin: BoardPosition,
+    val affectedPositions: Set<BoardPosition>
+)
+
+data class GravityAnimationState(
+    val id: Long,
+    val motions: Map<BoardPosition, GravityCellMotion>
+)
+
+data class GravityCellMotion(
+    val initialOffsetRows: Float,
+    val distanceRows: Int,
+    val isNewLetter: Boolean
+)

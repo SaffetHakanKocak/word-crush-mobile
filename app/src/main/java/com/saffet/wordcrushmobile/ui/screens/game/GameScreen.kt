@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -146,6 +147,7 @@ fun GameScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             AppTopBar(
                 title = "Oyun · ${state.rows}×${state.cols}",
@@ -301,6 +303,8 @@ fun GameScreen(
                                 isJokerTarget = state::isJokerTarget,
                                 isExploding = state::isExploding,
                                 jokerEffect = state.jokerEffect,
+                                specialEffects = state.specialEffects,
+                                gravityAnimation = state.gravityAnimation,
                                 enableDrag = dragEnabled,
                                 onDragStartCell = viewModel::onDragStartCell,
                                 onDragOverCell = viewModel::onDragOverCell,

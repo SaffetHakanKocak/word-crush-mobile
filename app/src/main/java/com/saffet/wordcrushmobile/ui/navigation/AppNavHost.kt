@@ -200,7 +200,7 @@ fun AppNavHost(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(top = 10.dp, end = 16.dp)
+                .padding(top = 0.dp, end = 16.dp)
                 .clip(RoundedCornerShape(999.dp))
                 .background(chipBackgroundColor(isMusicEnabled = isMusicEnabled, musicStatus = musicStatus))
                 .clickable {
