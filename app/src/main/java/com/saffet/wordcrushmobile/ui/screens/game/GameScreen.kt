@@ -6,6 +6,7 @@ import android.view.SoundEffectConstants
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -56,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
@@ -126,16 +128,21 @@ fun GameScreen(
             msg.contains("bulunamadı", ignoreCase = true) ||
             msg.contains("yok", ignoreCase = true)
 
+        val feedback = feedbackVisualFromMessage(msg)
+
         if (isError) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             toneGen.startTone(ToneGenerator.TONE_SUP_ERROR, 200)
+            snackbarHostState.showSnackbar(msg)
         } else {
-            feedbackVisual = feedbackVisualFromMessage(msg)
+            feedbackVisual = feedback
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             toneGen.startTone(ToneGenerator.TONE_SUP_CONFIRM, 150)
+            if (feedback == null) {
+                snackbarHostState.showSnackbar(msg)
+            }
         }
 
-        snackbarHostState.showSnackbar(msg)
         viewModel.onDismissMessage()
     }
 
@@ -272,7 +279,22 @@ fun GameScreen(
                     availableWordCount = state.availableWordCount
                 )
 
-                CurrentWordDisplay(word = state.currentWord)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    CurrentWordDisplay(
+                        word = state.currentWord,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    GameFeedbackOverlay(
+                        feedback = feedbackVisual,
+                        onFinished = { id ->
+                            if (feedbackVisual?.id == id) {
+                                feedbackVisual = null
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 state.jokerTargeting?.let { targeting ->
                     JokerTargetingBanner(
@@ -375,18 +397,6 @@ fun GameScreen(
 
                 Spacer(Modifier.height(8.dp))
             }
-
-            GameFeedbackOverlay(
-                feedback = feedbackVisual,
-                onFinished = { id ->
-                    if (feedbackVisual?.id == id) {
-                        feedbackVisual = null
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 12.dp, start = 18.dp, end = 18.dp)
-            )
         }
     }
 }
@@ -399,15 +409,15 @@ private fun GameFeedbackOverlay(
 ) {
     LaunchedEffect(feedback?.id) {
         val current = feedback ?: return@LaunchedEffect
-        delay(FEEDBACK_OVERLAY_MS)
+        delay(if (current.isCombo) COMBO_FEEDBACK_OVERLAY_MS else FEEDBACK_OVERLAY_MS)
         onFinished(current.id)
     }
 
     AnimatedVisibility(
         visible = feedback != null,
-        enter = fadeIn(tween(FEEDBACK_ENTER_MS)) +
+        enter = fadeIn(tween(FEEDBACK_ENTER_MS / 2)) +
             scaleIn(
-                initialScale = 0.82f,
+                initialScale = 0.58f,
                 animationSpec = tween(
                     durationMillis = FEEDBACK_ENTER_MS,
                     easing = FastOutSlowInEasing
@@ -438,6 +448,14 @@ private fun GameFeedbackOverlay(
         modifier = modifier
     ) {
         val shown = feedback ?: return@AnimatedVisibility
+        val popScale by animateFloatAsState(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = FEEDBACK_POP_MS,
+                easing = FastOutSlowInEasing
+            ),
+            label = "feedbackPopScale"
+        )
         val container = if (shown.isCombo) {
             MaterialTheme.colorScheme.tertiaryContainer
         } else {
@@ -450,36 +468,74 @@ private fun GameFeedbackOverlay(
         }
 
         Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = container,
+            modifier = Modifier
+                .fillMaxWidth()
+                .scale(popScale),
+            shape = RoundedCornerShape(26.dp),
+            color = container.copy(alpha = 0.94f),
             contentColor = content,
-            tonalElevation = 5.dp,
-            shadowElevation = 10.dp
+            tonalElevation = 8.dp,
+            shadowElevation = 16.dp
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (shown.isCombo) Icons.Filled.CheckCircle else Icons.Filled.Star,
-                    contentDescription = null,
-                    modifier = Modifier.size(26.dp),
-                    tint = content
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = shown.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = content
-                    )
-                    shown.subtitle?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = content.copy(alpha = 0.82f)
+            Box(
+                modifier = Modifier
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                content.copy(alpha = 0.18f),
+                                container.copy(alpha = 0.12f),
+                                content.copy(alpha = 0.08f)
+                            )
                         )
+                    )
+                    .padding(horizontal = 18.dp, vertical = 13.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(13.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(
+                                content.copy(alpha = 0.16f),
+                                RoundedCornerShape(14.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (shown.isCombo) Icons.Filled.CheckCircle else Icons.Filled.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = content
+                        )
+                    }
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = shown.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = content
+                        )
+                        shown.subtitle?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = content.copy(alpha = 0.84f)
+                            )
+                        }
+                        shown.detail?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = content.copy(alpha = 0.78f)
+                            )
+                        }
                     }
                 }
             }
@@ -495,14 +551,19 @@ private fun feedbackVisualFromMessage(message: String): GameFeedbackVisual? {
             ?.groupValues
             ?.getOrNull(1)
             ?.toIntOrNull()
+        val subWords = Regex("""combo \(([^)]+)\)""")
+            .find(message)
+            ?.groupValues
+            ?.getOrNull(1)
         val isCombo = (comboCount ?: 1) > 1
         return GameFeedbackVisual(
             id = System.nanoTime(),
             title = if (isCombo) "${comboCount}× Combo!" else "Kelime Patladı!",
             subtitle = listOfNotNull(
                 points?.let { "+$it puan" },
-                word
+                word?.let { if (isCombo) "Ana: $it" else it }
             ).joinToString(" · ").ifBlank { null },
+            detail = subWords?.let { "Alt: $it" },
             isCombo = isCombo
         )
     }
@@ -512,6 +573,7 @@ private fun feedbackVisualFromMessage(message: String): GameFeedbackVisual? {
             id = System.nanoTime(),
             title = "Joker Etkisi!",
             subtitle = message,
+            detail = null,
             isCombo = false
         )
     }
@@ -521,6 +583,7 @@ private fun feedbackVisualFromMessage(message: String): GameFeedbackVisual? {
             id = System.nanoTime(),
             title = "Özel Güç!",
             subtitle = message,
+            detail = null,
             isCombo = true
         )
     }
@@ -532,6 +595,7 @@ private data class GameFeedbackVisual(
     val id: Long,
     val title: String,
     val subtitle: String?,
+    val detail: String?,
     val isCombo: Boolean
 )
 
@@ -584,7 +648,9 @@ private fun GameOverCard(
 }
 
 private const val AUTO_NAVIGATE_HOME_MS: Long = 1200L
-private const val FEEDBACK_OVERLAY_MS: Long = 1600L
-private const val FEEDBACK_ENTER_MS: Int = 300
+private const val FEEDBACK_OVERLAY_MS: Long = 2400L
+private const val COMBO_FEEDBACK_OVERLAY_MS: Long = 4200L
+private const val FEEDBACK_ENTER_MS: Int = 360
 private const val FEEDBACK_EXIT_MS: Int = 260
+private const val FEEDBACK_POP_MS: Int = 220
 private const val GAME_OVER_ENTER_MS: Int = 520

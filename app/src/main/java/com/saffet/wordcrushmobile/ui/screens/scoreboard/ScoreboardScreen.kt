@@ -215,7 +215,7 @@ private fun StatsGrid(stats: GameStats) {
             )
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "En Yüksek Skor",
+                title = "En Yüksek Puan",
                 value = stats.highScore.toString(),
                 icon = Icons.Filled.Star,
                 colorTint = MaterialTheme.colorScheme.tertiary
@@ -224,7 +224,7 @@ private fun StatsGrid(stats: GameStats) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Ortalama Skor",
+                title = "Ortalama Puan",
                 value = stats.avgScore.toString(),
                 icon = Icons.Filled.Info,
                 colorTint = MaterialTheme.colorScheme.secondary

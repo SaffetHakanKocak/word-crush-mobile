@@ -184,7 +184,14 @@ fun AppNavHost(
                     navArgument(Screen.Game.ARG_MOVES) { type = NavType.IntType }
                 )
             ) {
-                GameScreen(onBack = { navController.popBackStack() })
+                GameScreen(
+                    onBack = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    }
+                )
             }
 
             composable(Screen.Scoreboard.route) {
