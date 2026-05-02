@@ -56,11 +56,7 @@ fun GridSizeCard(
         label = "gridElevation"
     )
     val containerColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-        } else {
-            MaterialTheme.colorScheme.surface
-        },
+        targetValue = MaterialTheme.colorScheme.surface,
         animationSpec = tween(300),
         label = "gridContainerColor"
     )
